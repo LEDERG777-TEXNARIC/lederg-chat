@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>LEDERG — сверхнадежный мессенджер</title>
+  <title>LEDERG — надёжный мессенджер</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    /* ... все ваши CSS стили остаются без изменений, я их не дублирую для краткости ... */
+    /* Ваши стили без изменений — для краткости пропускаю, они такие же как в предыдущем сообщении */
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     :root {
       --accent:#2b9c5e; --bg-page:#0a0f1a; --bg-sidebar:rgba(18,25,35,0.95);
@@ -27,7 +27,7 @@
     .auth-card h2 { font-size:2rem; font-weight:800; background:linear-gradient(135deg,#fff,var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent; text-align:center; margin-bottom:1.5rem; }
     .auth-card input { width:100%; padding:14px 18px; margin-bottom:12px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:40px; color:var(--text-primary); font-size:1rem; outline:none; }
     .auth-card button { width:100%; padding:12px; background:linear-gradient(135deg,var(--accent),#1d6e44); border:none; border-radius:40px; color:white; font-weight:bold; cursor:pointer; }
-    .auth-card .secondary-btn { background:transparent; border:1px solid var(--accent); margin-top:8px; }
+    .auth-card button:disabled { opacity:0.6; cursor:default; }
     .toggle-mode { text-align:center; margin-top:16px; color:var(--text-secondary); cursor:pointer; }
     .error-msg { color:#ff8a6f; text-align:center; margin-top:8px; font-size:0.8rem; }
     .success-msg { color:var(--accent); text-align:center; margin-top:8px; font-size:0.8rem; }
@@ -95,24 +95,23 @@
 </head>
 <body>
 <div class="app">
-  <!-- АВТОРИЗАЦИЯ -->
+  <!-- ЭКРАН АВТОРИЗАЦИИ (ИСПРАВЛЕН) -->
   <div id="authScreen" class="auth-screen">
     <div class="auth-card">
       <h2>⚡ LEDERG</h2>
       <input type="email" id="emailInput" placeholder="Email" autocomplete="email">
       <input type="password" id="passwordInput" placeholder="Пароль" autocomplete="current-password">
       <input type="text" id="nicknameInput" placeholder="Никнейм" style="display:none;">
-      <button id="submitAuthBtn"><span id="authBtnText">Войти</span></button>
-      <button id="resendConfirmBtn" class="secondary-btn" style="display:none;">Отправить письмо повторно</button>
-      <button id="forgotPasswordBtn" class="secondary-btn">Забыли пароль?</button>
+      <button id="submitAuthBtn">Войти</button>
       <div class="toggle-mode" id="toggleAuthMode">Создать аккаунт</div>
       <div id="authError" class="error-msg"></div>
       <div id="authSuccess" class="success-msg"></div>
     </div>
   </div>
 
-  <!-- ЧАТЫ -->
+  <!-- ОСНОВНОЙ ЭКРАН ЧАТОВ (как раньше) -->
   <div id="chatScreen" class="chat-screen">
+    <!-- ... весь остальной HTML без изменений ... -->
     <div class="main-layout">
       <div id="sidebar" class="sidebar">
         <div class="user-info">
@@ -180,15 +179,15 @@
 <div id="toast" class="toast"></div>
 
 <script>
-  // ====================== КОНФИГУРАЦИЯ SUPABASE ======================
+  // ====================== ВАШИ КЛЮЧИ SUPABASE ======================
   const SUPABASE_URL = 'https://whfcdzkfadqmkokjhogk.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_gNERJsFyw4PUE2xNjHOR9A_0-CJMrVR';
   // ===================================================================
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ---------- ГЛОБАЛЬНОЕ СОСТОЯНИЕ ----------
+  // --- ГЛОБАЛЬНОЕ СОСТОЯНИЕ ---
   let currentUser = null;
-  let currentChat = null; // { id, type, name, other_user_id? }
+  let currentChat = null;
   let currentChannelSubscription = null;
   let currentMessages = [];
   let oldestTimestamp = null;
@@ -200,123 +199,100 @@
   let globalRealtimeChannel = null;
   let onlineInterval = null;
 
-  // ---------- DOM-ЭЛЕМЕНТЫ ----------
+  // --- УТИЛИТЫ ---
   const $ = (id) => document.getElementById(id);
-  const authScreen = $('authScreen'), chatScreen = $('chatScreen');
-  const emailInput = $('emailInput'), passwordInput = $('passwordInput'), nicknameInput = $('nicknameInput');
-  const submitBtn = $('submitAuthBtn'), authBtnText = $('authBtnText');
-  const resendConfirmBtn = $('resendConfirmBtn'), forgotBtn = $('forgotPasswordBtn');
-  const toggleMode = $('toggleAuthMode'), authError = $('authError'), authSuccess = $('authSuccess');
-  const userNickDisplay = $('userNickDisplay'), userAvatar = $('userAvatar');
-  const logoutBtn = $('logoutBtn'), settingsBtn = $('settingsBtn');
-  const globalSearch = $('globalSearch'), searchResultsPanel = $('searchResultsPanel');
-  const chatsListDiv = $('chatsList'), messagesArea = $('messagesArea');
-  const messageInput = $('messageInput'), sendBtn = $('sendBtn'), attachBtn = $('attachBtn'), mediaFileInput = $('mediaFileInput');
-  const inputArea = $('inputArea'), currentChatTitle = $('currentChatTitle'), backBtn = $('backBtn');
-  const tabChats = $('tabChats'), tabChannels = $('tabChannels');
-  const channelInfoBtn = $('channelInfoBtn');
-  const createChannelFab = $('createChannelFab'), channelModal = $('channelModal');
-  const channelNameInput = $('channelName'), channelDescInput = $('channelDesc');
-  const confirmCreateChannel = $('confirmCreateChannel'), closeModal = $('closeModal');
-  const settingsModal = $('settingsModal'), themeToggleBtn = $('themeToggleBtn');
-  const changeNickBtn = $('changeNickBtn'), changePasswordBtn = $('changePasswordBtn'), closeSettingsBtn = $('closeSettingsBtn');
-  const toast = $('toast');
-
-  // ---------- УТИЛИТЫ ----------
   const escapeHtml = (str) => str ? str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])) : '';
   const formatTime = (ts) => new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  const showToast = (text) => { toast.innerText = text; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 3000); };
-  const setLoading = (btn, loading) => {
-    if (loading) {
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Подождите...';
-    } else {
-      btn.disabled = false;
-      btn.innerHTML = authBtnText.innerText;
-    }
-  };
+  const showToast = (text) => { $('toast').innerText = text; $('toast').classList.add('show'); setTimeout(() => $('toast').classList.remove('show'), 3000); };
 
-  // ---------- АВТОРИЗАЦИЯ ----------
+  // --- АВТОРИЗАЦИЯ (ПОЛНОСТЬЮ ПЕРЕПИСАНА) ---
   let isLoginMode = true;
 
   function updateAuthUI() {
-    nicknameInput.style.display = isLoginMode ? 'none' : 'block';
-    submitBtn.innerText = isLoginMode ? 'Войти' : 'Зарегистрироваться';
-    toggleMode.innerText = isLoginMode ? 'Создать аккаунт' : 'Уже есть аккаунт? Войти';
-    resendConfirmBtn.style.display = 'none';
-    authError.innerText = '';
-    authSuccess.innerText = '';
+    const submitBtn = $('submitAuthBtn');
+    const nicknameInput = $('nicknameInput');
+    const toggleMode = $('toggleAuthMode');
+    const errorDiv = $('authError');
+    const successDiv = $('authSuccess');
+    errorDiv.innerText = '';
+    successDiv.innerText = '';
+    if (isLoginMode) {
+      nicknameInput.style.display = 'none';
+      submitBtn.textContent = 'Войти';
+      toggleMode.textContent = 'Создать аккаунт';
+    } else {
+      nicknameInput.style.display = 'block';
+      submitBtn.textContent = 'Зарегистрироваться';
+      toggleMode.textContent = 'Уже есть аккаунт? Войти';
+    }
   }
 
-  toggleMode.onclick = () => { isLoginMode = !isLoginMode; updateAuthUI(); };
-  forgotBtn.onclick = async () => {
-    const email = emailInput.value.trim();
-    if (!email) return authError.innerText = 'Введите email для восстановления';
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
-    if (error) authError.innerText = error.message;
-    else authSuccess.innerText = 'Письмо для сброса пароля отправлено!';
+  $('toggleAuthMode').onclick = () => {
+    isLoginMode = !isLoginMode;
+    updateAuthUI();
   };
 
-  resendConfirmBtn.onclick = async () => {
-    const email = emailInput.value.trim();
-    if (!email) return;
-    const { error } = await supabase.auth.resend({ type: 'signup', email });
-    if (error) authError.innerText = error.message;
-    else authSuccess.innerText = 'Письмо отправлено повторно. Проверьте почту.';
-  };
+  $('submitAuthBtn').onclick = async () => {
+    const email = $('emailInput').value.trim();
+    const password = $('passwordInput').value.trim();
+    const nickname = $('nicknameInput').value.trim();
+    const errorDiv = $('authError');
+    const successDiv = $('authSuccess');
+    errorDiv.innerText = '';
+    successDiv.innerText = '';
 
-  submitBtn.onclick = async () => {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
-    const nickname = nicknameInput.value.trim();
-    authError.innerText = '';
-    authSuccess.innerText = '';
-    if (!email || !password) { authError.innerText = 'Заполните email и пароль'; return; }
-    if (!isLoginMode && !nickname) { authError.innerText = 'Придумайте никнейм'; return; }
-    setLoading(submitBtn, true);
+    if (!email || !password) {
+      errorDiv.innerText = 'Заполните email и пароль';
+      return;
+    }
+    if (!isLoginMode && !nickname) {
+      errorDiv.innerText = 'Придумайте никнейм';
+      return;
+    }
+
+    const submitBtn = $('submitAuthBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span> Подождите...';
+
     try {
       if (isLoginMode) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        // Регистрация
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { nickname } }
         });
         if (error) throw error;
-        // Проверяем, нужно ли подтверждение
         if (data?.user?.identities?.length === 0) {
-          authError.innerText = 'Этот email уже зарегистрирован. Войдите или восстановите пароль.';
+          errorDiv.innerText = 'Этот email уже зарегистрирован';
         } else if (data?.session === null) {
-          // Требуется подтверждение email
-          authSuccess.innerText = 'Регистрация успешна! Проверьте почту для подтверждения.';
-          resendConfirmBtn.style.display = 'block';
+          successDiv.innerText = 'Проверьте почту для подтверждения!';
         } else {
-          // Автовход (если подтверждение отключено)
-          authSuccess.innerText = 'Регистрация успешна! Выполняется вход...';
+          successDiv.innerText = 'Регистрация успешна!';
         }
       }
     } catch (err) {
-      authError.innerText = err.message;
+      errorDiv.innerText = err.message;
     } finally {
-      setLoading(submitBtn, false);
+      submitBtn.disabled = false;
+      updateAuthUI(); // возвращает исходную надпись
     }
   };
 
-  // Слушаем изменения сессии
+  // Слушатель сессии
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
       currentUser = session.user;
       const { data: userData } = await supabase.from('users').select('nickname').eq('id', currentUser.id).single();
       if (userData) {
         currentUser.nickname = userData.nickname;
-        userNickDisplay.innerText = userData.nickname;
-        userAvatar.innerText = userData.nickname.charAt(0).toUpperCase();
+        $('userNickDisplay').innerText = userData.nickname;
+        $('userAvatar').innerText = userData.nickname.charAt(0).toUpperCase();
       }
-      authScreen.style.display = 'none';
-      chatScreen.style.display = 'block';
+      $('authScreen').style.display = 'none';
+      $('chatScreen').style.display = 'block';
       await loadAllUsers();
       await loadAllChannels();
       await loadUserChats();
@@ -324,8 +300,8 @@
       startOnlinePing();
       startGlobalRealtime();
     } else {
-      authScreen.style.display = 'flex';
-      chatScreen.style.display = 'none';
+      $('authScreen').style.display = 'flex';
+      $('chatScreen').style.display = 'none';
       if (currentChannelSubscription) supabase.removeChannel(currentChannelSubscription);
       if (globalRealtimeChannel) supabase.removeChannel(globalRealtimeChannel);
       if (onlineInterval) clearInterval(onlineInterval);
@@ -333,7 +309,7 @@
     }
   });
 
-  // Онлайн-статус
+  // Онлайн статус
   function startOnlinePing() {
     updateOnlineStatus();
     if (onlineInterval) clearInterval(onlineInterval);
@@ -347,7 +323,7 @@
     if (currentUser) supabase.from('users').update({ online: false, last_seen: new Date().toISOString() }).eq('id', currentUser.id);
   });
 
-  // Глобальный realtime для уведомлений
+  // Глобальный realtime
   function startGlobalRealtime() {
     if (globalRealtimeChannel) supabase.removeChannel(globalRealtimeChannel);
     globalRealtimeChannel = supabase.channel('global-updates')
@@ -368,7 +344,7 @@
       .subscribe();
   }
 
-  // ---------- ЗАГРУЗКА ДАННЫХ ----------
+  // --- ЗАГРУЗКА ДАННЫХ (без изменений) ---
   async function loadAllUsers() {
     const { data } = await supabase.from('users').select('id, nickname');
     allUsers = data || [];
@@ -405,26 +381,25 @@
     userChats = [...privateChats, ...channelChats].sort((a,b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
     renderChatsList();
   }
-
   function renderChatsList() {
     const filtered = userChats.filter(c => activeTab === 'channels' ? c.type === 'channel' : c.type === 'private');
-    chatsListDiv.innerHTML = '';
-    if (!filtered.length) { chatsListDiv.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">Нет чатов</div>'; return; }
+    $('chatsList').innerHTML = '';
+    if (!filtered.length) { $('chatsList').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">Нет чатов</div>'; return; }
     filtered.forEach(chat => {
       const div = document.createElement('div');
       div.className = 'chat-item' + (currentChat?.id === chat.id && currentChat?.type === chat.type ? ' active' : '');
       div.innerHTML = `<div class="avatar">${chat.avatar}</div><div class="chat-info"><div class="chat-name">${escapeHtml(chat.name)}</div><div class="chat-last">${escapeHtml(chat.lastMessage || 'Нет сообщений')}</div></div>`;
       div.onclick = () => openChat(chat);
-      chatsListDiv.appendChild(div);
+      $('chatsList').appendChild(div);
     });
   }
 
-  // ---------- ЧАТЫ И СООБЩЕНИЯ ----------
+  // --- ЧАТЫ И СООБЩЕНИЯ (аналогично предыдущему) ---
   async function openChat(chat) {
     if (currentChannelSubscription) { supabase.removeChannel(currentChannelSubscription); currentChannelSubscription = null; }
     currentChat = chat; currentMessages = []; oldestTimestamp = null;
-    currentChatTitle.innerText = chat.name; inputArea.style.display = 'flex';
-    messagesArea.innerHTML = '<div style="text-align:center;"><i class="fas fa-spinner fa-pulse"></i> Загрузка...</div>';
+    $('currentChatTitle').innerText = chat.name; $('inputArea').style.display = 'flex';
+    $('messagesArea').innerHTML = '<div style="text-align:center;"><i class="fas fa-spinner fa-pulse"></i> Загрузка...</div>';
     await loadMessages(chat, true);
     const tableName = chat.type === 'private' ? 'messages' : 'channel_messages';
     const columnName = chat.type === 'private' ? 'conversation_id' : 'channel_id';
@@ -437,11 +412,10 @@
         }
       })
       .subscribe();
-    channelInfoBtn.style.display = chat.type === 'channel' ? 'inline-block' : 'none';
+    $('channelInfoBtn').style.display = chat.type === 'channel' ? 'inline-block' : 'none';
     if (window.innerWidth <= 680) $('sidebar').classList.remove('open');
     renderChatsList();
   }
-
   async function loadMessages(chat, reset = false) {
     const tableName = chat.type === 'private' ? 'messages' : 'channel_messages';
     const columnName = chat.type === 'private' ? 'conversation_id' : 'channel_id';
@@ -459,33 +433,29 @@
     }
     if (currentMessages.length > 0) oldestTimestamp = currentMessages[0].created_at;
   }
-
   function renderMessages(msgs) {
-    messagesArea.innerHTML = '';
-    if (!msgs.length) { messagesArea.innerHTML = '<div style="text-align:center;color:var(--text-secondary);">Сообщений нет</div>'; return; }
+    $('messagesArea').innerHTML = '';
+    if (!msgs.length) { $('messagesArea').innerHTML = '<div style="text-align:center;color:var(--text-secondary);">Сообщений нет</div>'; return; }
     if (msgs.length === PAGE_SIZE) {
       const loadDiv = document.createElement('div'); loadDiv.className = 'load-more';
       loadDiv.innerHTML = '<button>Загрузить предыдущие</button>';
       loadDiv.onclick = () => loadMessages(currentChat);
-      messagesArea.appendChild(loadDiv);
+      $('messagesArea').appendChild(loadDiv);
     }
     msgs.forEach(msg => appendMessageToDOM(msg, false));
-    messagesArea.scrollTop = messagesArea.scrollHeight;
+    $('messagesArea').scrollTop = $('messagesArea').scrollHeight;
   }
-
   function appendMessageToDOM(msg, scroll = false) {
-    messagesArea.appendChild(createMessageElement(msg));
-    if (scroll) messagesArea.scrollTop = messagesArea.scrollHeight;
+    $('messagesArea').appendChild(createMessageElement(msg));
+    if (scroll) $('messagesArea').scrollTop = $('messagesArea').scrollHeight;
   }
-
   function prependMessagesToDOM(msgs) {
-    const prevScroll = messagesArea.scrollHeight;
+    const prevScroll = $('messagesArea').scrollHeight;
     const frag = document.createDocumentFragment();
     msgs.forEach(m => frag.appendChild(createMessageElement(m)));
-    messagesArea.insertBefore(frag, messagesArea.firstChild);
-    messagesArea.scrollTop = messagesArea.scrollHeight - prevScroll;
+    $('messagesArea').insertBefore(frag, $('messagesArea').firstChild);
+    $('messagesArea').scrollTop = $('messagesArea').scrollHeight - prevScroll;
   }
-
   function createMessageElement(msg) {
     const isSelf = msg.from_user_id === currentUser.id;
     const msgDiv = document.createElement('div');
@@ -506,10 +476,8 @@
     const author = isSelf ? 'Вы' : (allUsers.find(u => u.id === msg.from_user_id)?.nickname || 'Пользователь');
     meta.innerText = `${author} · ${formatTime(msg.created_at)}`;
     msgDiv.appendChild(bubble); msgDiv.appendChild(meta);
-    // Контекстное меню (удаление)
     if (isSelf) {
-      const ctx = document.createElement('div'); ctx.className = 'msg-context';
-      ctx.innerHTML = '🗑️';
+      const ctx = document.createElement('div'); ctx.className = 'msg-context'; ctx.innerHTML = '🗑️';
       ctx.onclick = async (e) => {
         e.stopPropagation();
         const tableName = currentChat.type === 'private' ? 'messages' : 'channel_messages';
@@ -521,25 +489,23 @@
     }
     return msgDiv;
   }
-
-  messagesArea.addEventListener('scroll', () => {
-    if (messagesArea.scrollTop === 0 && currentMessages.length >= PAGE_SIZE) loadMessages(currentChat);
+  $('messagesArea').addEventListener('scroll', () => {
+    if ($('messagesArea').scrollTop === 0 && currentMessages.length >= PAGE_SIZE) loadMessages(currentChat);
   });
-
   async function sendMessage(text) {
-    if (!text.trim() && !mediaFileInput.files.length) return;
+    if (!text.trim() && !$('mediaFileInput').files.length) return;
     if (!currentChat) return;
     const tableName = currentChat.type === 'private' ? 'messages' : 'channel_messages';
     const columnName = currentChat.type === 'private' ? 'conversation_id' : 'channel_id';
     let mediaUrl = null, mediaType = null;
-    if (mediaFileInput.files.length) {
-      const file = mediaFileInput.files[0];
+    if ($('mediaFileInput').files.length) {
+      const file = $('mediaFileInput').files[0];
       const fileExt = file.name.split('.').pop();
       const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('media').upload(fileName, file, { cacheControl:'3600', upsert:false });
       if (uploadError) { alert('Ошибка загрузки: '+uploadError.message); return; }
       const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
-      mediaUrl = publicUrl; mediaType = file.type; mediaFileInput.value = '';
+      mediaUrl = publicUrl; mediaType = file.type; $('mediaFileInput').value = '';
     }
     const { error } = await supabase.from(tableName).insert([{
       [columnName]: currentChat.id, from_user_id: currentUser.id,
@@ -547,35 +513,33 @@
       created_at: new Date().toISOString()
     }]);
     if (error) console.error(error);
-    messageInput.value = '';
+    $('messageInput').value = '';
     await loadUserChats();
   }
-
-  sendBtn.onclick = () => sendMessage(messageInput.value);
-  messageInput.addEventListener('keypress', e => { if (e.key==='Enter') sendMessage(messageInput.value); });
-  attachBtn.onclick = () => mediaFileInput.click();
+  $('sendBtn').onclick = () => sendMessage($('messageInput').value);
+  $('messageInput').addEventListener('keypress', e => { if (e.key==='Enter') sendMessage($('messageInput').value); });
+  $('attachBtn').onclick = () => $('mediaFileInput').click();
 
   // Поиск
   function setupSearch() {
     let timeout;
-    globalSearch.addEventListener('input', () => {
+    $('globalSearch').addEventListener('input', () => {
       clearTimeout(timeout);
-      const q = globalSearch.value.trim().toLowerCase();
-      if (q.length < 2) { searchResultsPanel.style.display = 'none'; return; }
+      const q = $('globalSearch').value.trim().toLowerCase();
+      if (q.length < 2) { $('searchResultsPanel').style.display = 'none'; return; }
       timeout = setTimeout(async () => {
         const users = allUsers.filter(u => u.id !== currentUser.id && u.nickname.toLowerCase().includes(q) && !userChats.some(c => c.type==='private' && c.otherId===u.id));
         const { data: subs } = await supabase.from('channel_members').select('channel_id').eq('user_id', currentUser.id);
         const subIds = (subs||[]).map(s => s.channel_id);
         const channels = allChannels.filter(c => !subIds.includes(c.id) && c.name.toLowerCase().includes(q));
-        searchResultsPanel.innerHTML = '';
-        users.slice(0,5).forEach(u => { const d=document.createElement('div'); d.className='search-result'; d.innerHTML=`<i class="fas fa-user"></i> ${escapeHtml(u.nickname)}`; d.onclick=()=>startPrivateChat(u.id,u.nickname); searchResultsPanel.appendChild(d); });
-        channels.slice(0,5).forEach(c => { const d=document.createElement('div'); d.className='search-result'; d.innerHTML=`<i class="fas fa-bullhorn"></i> ${escapeHtml(c.name)} (канал)`; d.onclick=()=>joinChannel(c.id); searchResultsPanel.appendChild(d); });
-        searchResultsPanel.style.display = 'block';
+        $('searchResultsPanel').innerHTML = '';
+        users.slice(0,5).forEach(u => { const d=document.createElement('div'); d.className='search-result'; d.innerHTML=`<i class="fas fa-user"></i> ${escapeHtml(u.nickname)}`; d.onclick=()=>startPrivateChat(u.id,u.nickname); $('searchResultsPanel').appendChild(d); });
+        channels.slice(0,5).forEach(c => { const d=document.createElement('div'); d.className='search-result'; d.innerHTML=`<i class="fas fa-bullhorn"></i> ${escapeHtml(c.name)} (канал)`; d.onclick=()=>joinChannel(c.id); $('searchResultsPanel').appendChild(d); });
+        $('searchResultsPanel').style.display = 'block';
       }, 400);
     });
-    document.addEventListener('click', e => { if (!searchResultsPanel.contains(e.target) && e.target!==globalSearch) searchResultsPanel.style.display='none'; });
+    document.addEventListener('click', e => { if (!$('searchResultsPanel').contains(e.target) && e.target!==$('globalSearch')) $('searchResultsPanel').style.display='none'; });
   }
-
   async function startPrivateChat(otherId, otherNick) {
     let { data: conv } = await supabase.from('conversations').select('*').or(`and(participant1.eq.${currentUser.id},participant2.eq.${otherId}),and(participant1.eq.${otherId},participant2.eq.${currentUser.id})`).maybeSingle();
     if (!conv) {
@@ -586,52 +550,48 @@
     await loadUserChats();
     const chat = userChats.find(c => c.type==='private' && c.otherId===otherId);
     if (chat) openChat(chat);
-    globalSearch.value=''; searchResultsPanel.style.display='none';
+    $('globalSearch').value=''; $('searchResultsPanel').style.display='none';
   }
-
   async function joinChannel(channelId) {
     const { data: mem } = await supabase.from('channel_members').select('*').eq('channel_id',channelId).eq('user_id',currentUser.id).maybeSingle();
     if (!mem) await supabase.from('channel_members').insert([{channel_id:channelId, user_id:currentUser.id}]);
     await loadAllChannels(); await loadUserChats();
     const chat = userChats.find(c => c.type==='channel' && c.id===channelId);
     if (chat) openChat(chat);
-    globalSearch.value=''; searchResultsPanel.style.display='none';
+    $('globalSearch').value=''; $('searchResultsPanel').style.display='none';
   }
 
-  confirmCreateChannel.onclick = async () => {
-    const name = channelNameInput.value.trim();
+  // Остальные обработчики
+  $('logoutBtn').onclick = () => supabase.auth.signOut();
+  $('tabChats').onclick = () => { activeTab='chats'; $('tabChats').classList.add('active'); $('tabChannels').classList.remove('active'); renderChatsList(); };
+  $('tabChannels').onclick = () => { activeTab='channels'; $('tabChannels').classList.add('active'); $('tabChats').classList.remove('active'); renderChatsList(); };
+  $('backBtn').onclick = () => $('sidebar').classList.toggle('open');
+  $('createChannelFab').onclick = () => $('channelModal').classList.add('active');
+  $('closeModal').onclick = () => $('channelModal').classList.remove('active');
+  $('settingsBtn').onclick = () => $('settingsModal').classList.add('active');
+  $('closeSettingsBtn').onclick = () => $('settingsModal').classList.remove('active');
+  $('themeToggleBtn').onclick = () => {
+    document.body.classList.toggle('light');
+    localStorage.setItem('lederg_theme', document.body.classList.contains('light')?'light':'dark');
+  };
+  if (localStorage.getItem('lederg_theme')==='light') document.body.classList.add('light');
+  $('confirmCreateChannel').onclick = async () => {
+    const name = $('channelName').value.trim();
     if (!name) return alert('Введите название');
-    const { data: newChan } = await supabase.from('channels').insert([{name, description: channelDescInput.value.trim(), created_by: currentUser.id}]).select().single();
+    const { data: newChan } = await supabase.from('channels').insert([{name, description: $('channelDesc').value.trim(), created_by: currentUser.id}]).select().single();
     if (newChan) {
       await supabase.from('channel_members').insert([{channel_id: newChan.id, user_id: currentUser.id}]);
       await loadAllChannels(); await loadUserChats();
       const chat = userChats.find(c => c.type==='channel' && c.id===newChan.id);
       if (chat) openChat(chat);
     }
-    channelModal.classList.remove('active'); channelNameInput.value=channelDescInput.value='';
+    $('channelModal').classList.remove('active'); $('channelName').value=$('channelDesc').value='';
   };
-
-  channelInfoBtn.onclick = () => {
+  $('channelInfoBtn').onclick = () => {
     const ch = allChannels.find(c => c.id===currentChat?.id);
     if (ch) alert(`Канал: ${ch.name}\nОписание: ${ch.description||'Нет'}\nСоздатель: ${allUsers.find(u=>u.id===ch.created_by)?.nickname||'Неизвестен'}`);
   };
-
-  // ---------- UI ----------
-  logoutBtn.onclick = () => supabase.auth.signOut();
-  tabChats.onclick = () => { activeTab='chats'; tabChats.classList.add('active'); tabChannels.classList.remove('active'); renderChatsList(); };
-  tabChannels.onclick = () => { activeTab='channels'; tabChannels.classList.add('active'); tabChats.classList.remove('active'); renderChatsList(); };
-  backBtn.onclick = () => $('sidebar').classList.toggle('open');
-  createChannelFab.onclick = () => channelModal.classList.add('active');
-  closeModal.onclick = () => channelModal.classList.remove('active');
-  settingsBtn.onclick = () => settingsModal.classList.add('active');
-  closeSettingsBtn.onclick = () => settingsModal.classList.remove('active');
-  themeToggleBtn.onclick = () => {
-    document.body.classList.toggle('light');
-    localStorage.setItem('lederg_theme', document.body.classList.contains('light')?'light':'dark');
-  };
-  if (localStorage.getItem('lederg_theme')==='light') document.body.classList.add('light');
-
-  changeNickBtn.onclick = async () => {
+  $('changeNickBtn').onclick = async () => {
     const newNick = prompt('Новый никнейм:', currentUser.nickname);
     if (!newNick || newNick.trim()===currentUser.nickname) return;
     const trimmed = newNick.trim();
@@ -639,13 +599,12 @@
     if (exist && exist.id!==currentUser.id) return alert('Никнейм занят');
     const { error } = await supabase.from('users').update({nickname:trimmed}).eq('id',currentUser.id);
     if (!error) {
-      currentUser.nickname = trimmed; userNickDisplay.innerText=trimmed; userAvatar.innerText=trimmed.charAt(0).toUpperCase();
+      currentUser.nickname = trimmed; $('userNickDisplay').innerText=trimmed; $('userAvatar').innerText=trimmed.charAt(0).toUpperCase();
       await supabase.auth.updateUser({data:{nickname:trimmed}});
       alert('Никнейм изменён');
     } else alert('Ошибка: '+error.message);
   };
-
-  changePasswordBtn.onclick = async () => {
+  $('changePasswordBtn').onclick = async () => {
     const newPass = prompt('Новый пароль (мин. 6 символов):');
     if (!newPass || newPass.length<6) return alert('Минимум 6 символов');
     const { error } = await supabase.auth.updateUser({password:newPass});
@@ -653,7 +612,7 @@
     else alert('Пароль успешно изменён');
   };
 
-  // При загрузке проверяем сессию
+  // Проверка сессии при загрузке страницы
   supabase.auth.getSession().then(({ data: { session } }) => {
     if (session) supabase.auth.onAuthStateChange(()=>{}); // вызовет событие
   });
