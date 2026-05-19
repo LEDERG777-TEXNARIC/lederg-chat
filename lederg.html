@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LEDERG — полный мессенджер</title>
-    <!-- Firebase SDK -->
+    <title>LEDERG — мессенджер</title>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <!-- Доп. библиотеки -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         :root {
@@ -51,7 +48,6 @@
             font-weight: bold;
             color: rgba(43,156,94,0.08);
             pointer-events: none;
-            font-family: monospace;
             z-index: 0;
         }
         .auth-screen {
@@ -227,18 +223,10 @@
             .message { max-width: 85%; }
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        .poll-option { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-        .poll-bar { background: var(--accent); height: 6px; border-radius: 3px; transition: width 0.2s; }
-        .sticker { font-size: 2rem; cursor: pointer; transition: transform 0.1s; }
-        .sticker:hover { transform: scale(1.2); }
-        .theme-selector { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-        .theme-color { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
-        .theme-color.active { border-color: white; }
     </style>
 </head>
 <body>
 <div class="app">
-    <!-- Экран авторизации -->
     <div id="authScreen" class="auth-screen">
         <div class="auth-card">
             <h2>⚡ LEDERG</h2>
@@ -250,8 +238,6 @@
             <div id="authError" class="error-msg"></div>
         </div>
     </div>
-
-    <!-- Основной экран чата -->
     <div id="chatScreen" class="chat-screen">
         <div class="main-layout">
             <div id="sidebar" class="sidebar">
@@ -264,17 +250,11 @@
                 <div id="chatsList" class="chats-list"></div>
             </div>
             <div class="chat-area">
-                <div class="chat-header"><button id="backBtn" class="back-btn"><i class="fas fa-bars"></i></button><div class="chat-title" id="currentChatTitle">LEDERG</div><div class="chat-actions"><button id="channelInfoBtn" style="display: none;"><i class="fas fa-info-circle"></i></button><button id="exportChatBtn" title="Экспорт JSON"><i class="fas fa-download"></i></button><button id="exportPdfBtn" title="Экспорт PDF"><i class="fas fa-file-pdf"></i></button><button id="clearChatBtn" title="Очистить историю"><i class="fas fa-trash-alt"></i></button></div></div>
+                <div class="chat-header"><button id="backBtn" class="back-btn"><i class="fas fa-bars"></i></button><div class="chat-title" id="currentChatTitle">LEDERG</div><div class="chat-actions"><button id="channelInfoBtn" style="display: none;"><i class="fas fa-info-circle"></i></button><button id="exportChatBtn" title="Экспорт чата"><i class="fas fa-download"></i></button><button id="clearChatBtn" title="Очистить историю"><i class="fas fa-trash-alt"></i></button></div></div>
                 <div id="messagesArea" class="messages-area"></div>
                 <div class="input-area" id="inputArea" style="display: none;">
                     <div class="input-row">
-                        <button id="emojiBtn" class="tool-btn"><i class="far fa-smile-wink"></i></button>
                         <button id="attachBtn" class="tool-btn"><i class="fas fa-paperclip"></i></button>
-                        <button id="voiceBtn" class="tool-btn"><i class="fas fa-microphone"></i></button>
-                        <button id="pollBtn" class="tool-btn"><i class="fas fa-poll"></i></button>
-                        <button id="locationBtn" class="tool-btn"><i class="fas fa-map-marker-alt"></i></button>
-                        <button id="fileBtn" class="tool-btn"><i class="fas fa-file"></i></button>
-                        <button id="stickerBtn" class="tool-btn"><i class="fas fa-smile"></i></button>
                         <input type="text" id="messageInput" placeholder="Сообщение...">
                         <button id="sendBtn" class="tool-btn"><i class="fas fa-paper-plane"></i></button>
                     </div>
@@ -286,15 +266,10 @@
     </div>
 </div>
 
-<div id="settingsModal" class="modal"><div class="modal-content"><h3>Настройки</h3><button id="themeToggleBtn">🌓 Сменить тему (светлая/тёмная)</button><div class="theme-selector"><div class="theme-color" data-theme="dark" style="background:#0a0f1a;"></div><div class="theme-color" data-theme="light" style="background:#eef2f5;"></div><div class="theme-color" data-theme="green" style="background:#2b9c5e;"></div><div class="theme-color" data-theme="blue" style="background:#3b82f6;"></div><div class="theme-color" data-theme="purple" style="background:#8b5cf6;"></div></div><button id="changeNickBtn">✏️ Сменить никнейм</button><button id="changePasswordBtn">🔑 Сменить пароль</button><button id="notificationsToggleBtn">🔔 Уведомления: Вкл</button><button id="blockUserBtn">🚫 Заблокировать пользователя</button><button id="closeSettingsBtn" class="secondary">Закрыть</button></div></div>
+<div id="settingsModal" class="modal"><div class="modal-content"><h3>Настройки</h3><button id="themeToggleBtn">🌓 Светлая/тёмная тема</button><button id="changeNickBtn">✏️ Сменить никнейм</button><button id="changePasswordBtn">🔑 Сменить пароль</button><button id="notificationsToggleBtn">🔔 Уведомления: Вкл</button><button id="closeSettingsBtn" class="secondary">Закрыть</button></div></div>
 <div id="channelModal" class="modal"><div class="modal-content"><h3>Новый канал</h3><input type="text" id="channelName" placeholder="Название"><textarea id="channelDesc" placeholder="Описание" rows="2"></textarea><button id="confirmCreateChannel">Создать</button><button id="closeModal" class="secondary">Отмена</button></div></div>
-<div id="reactionModal" class="modal"><div class="modal-content" style="text-align:center;"><h3>Реакции</h3><div style="display:flex; gap:16px; justify-content:center; font-size:2rem;"><span data-reaction="👍">👍</span><span data-reaction="❤️">❤️</span><span data-reaction="😂">😂</span><span data-reaction="😮">😮</span><span data-reaction="😢">😢</span></div></div></div>
-<div id="voiceModal" class="modal"><div class="modal-content"><h3>Голосовое сообщение</h3><button id="startRecordBtn">🎤 Запись</button><button id="stopRecordBtn" disabled>⏹️ Стоп</button><audio id="audioPlayback" controls style="width:100%; margin-top:12px;"></audio><button id="sendAudioBtn" disabled>📤 Отправить</button><button id="closeVoiceModal" class="secondary">Отмена</button></div></div>
-<div id="forwardModal" class="modal"><div class="modal-content"><h3>Переслать в чат</h3><div id="forwardChatsList"></div><button id="closeForwardModal" class="secondary">Отмена</button></div></div>
-<div id="pollModal" class="modal"><div class="modal-content"><h3>Новый опрос</h3><input type="text" id="pollQuestion" placeholder="Вопрос"><textarea id="pollOptions" placeholder="Варианты через запятую"></textarea><button id="sendPollBtn">Создать опрос</button><button id="closePollModal" class="secondary">Отмена</button></div></div>
 
 <script>
-    // ====================== КОНФИГ FIREBASE (ВАШ ПРОЕКТ) ======================
     const firebaseConfig = {
         apiKey: "AIzaSyBMovcf0WC7bHYzeIKo7N5FYgvJOlSmiec",
         authDomain: "lederg-messages.firebaseapp.com",
@@ -302,10 +277,8 @@
         projectId: "lederg-messages",
         storageBucket: "lederg-messages.firebasestorage.app",
         messagingSenderId: "753662822873",
-        appId: "1:753662822873:web:0635ccd83a5f061546f1c8",
-        measurementId: "G-SG186R72QV"
+        appId: "1:753662822873:web:0635ccd83a5f061546f1c8"
     };
-    // ========================================================================
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
@@ -315,15 +288,10 @@
     let currentMessagesListener = null;
     let allUsers = {}, allChannels = {}, userChats = [];
     let activeTab = 'chats';
-    let replyToMsg = null, editingMessage = null, forwardMessage = null;
-    let typingTimeout = null;
-    let mediaRecorder = null, audioChunks = [];
+    let replyToMsg = null, editingMessage = null;
     let notificationsEnabled = true;
-    let currentTheme = 'dark';
-    let blockedUsers = []; // uid
-    let stickers = ['😀','😂','❤️','🔥','🎉','👍','👎','🤔','😎','🥳','😭','🤣','💯','🔞','💔','👀','🌟','⚡','🍻','🎶'];
 
-    // DOM elements
+    // DOM
     const authScreen = document.getElementById('authScreen');
     const chatScreen = document.getElementById('chatScreen');
     const emailInput = document.getElementById('emailInput');
@@ -355,56 +323,19 @@
     const closeModal = document.getElementById('closeModal');
     const channelInfoBtn = document.getElementById('channelInfoBtn');
     const exportChatBtn = document.getElementById('exportChatBtn');
-    const exportPdfBtn = document.getElementById('exportPdfBtn');
     const clearChatBtn = document.getElementById('clearChatBtn');
     const settingsModal = document.getElementById('settingsModal');
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     const changeNickBtn = document.getElementById('changeNickBtn');
     const changePasswordBtn = document.getElementById('changePasswordBtn');
     const notificationsToggleBtn = document.getElementById('notificationsToggleBtn');
-    const blockUserBtn = document.getElementById('blockUserBtn');
     const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-    const emojiBtn = document.getElementById('emojiBtn');
     const attachBtn = document.getElementById('attachBtn');
-    const voiceBtn = document.getElementById('voiceBtn');
-    const pollBtn = document.getElementById('pollBtn');
-    const locationBtn = document.getElementById('locationBtn');
-    const fileBtn = document.getElementById('fileBtn');
-    const stickerBtn = document.getElementById('stickerBtn');
     const replyPreview = document.getElementById('replyPreview');
-    const reactionModal = document.getElementById('reactionModal');
-    const voiceModal = document.getElementById('voiceModal');
-    const startRecordBtn = document.getElementById('startRecordBtn');
-    const stopRecordBtn = document.getElementById('stopRecordBtn');
-    const audioPlayback = document.getElementById('audioPlayback');
-    const sendAudioBtn = document.getElementById('sendAudioBtn');
-    const closeVoiceModal = document.getElementById('closeVoiceModal');
-    const forwardModal = document.getElementById('forwardModal');
-    const forwardChatsList = document.getElementById('forwardChatsList');
-    const closeForwardModal = document.getElementById('closeForwardModal');
-    const pollModal = document.getElementById('pollModal');
-    const pollQuestion = document.getElementById('pollQuestion');
-    const pollOptions = document.getElementById('pollOptions');
-    const sendPollBtn = document.getElementById('sendPollBtn');
-    const closePollModal = document.getElementById('closePollModal');
 
-    // Helper
     function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
     function formatTime(ts) { return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
-    function formatMarkdown(text) {
-        if(!text) return '';
-        return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                   .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                   .replace(/__(.*?)__/g, '<u>$1</u>')
-                   .replace(/~~(.*?)~~/g, '<del>$1</del>')
-                   .replace(/@(\w+)/g, '<mark>@$1</mark>')
-                   .replace(/#(\w+)/g, '<mark>#$1</mark>');
-    }
-    function emojiReplacer(text) {
-        return text.replace(/:\)/g, '😊').replace(/;\)/g, '😉').replace(/:\(/g, '😞').replace(/:D/g, '😁');
-    }
 
-    // Загрузка данных
     async function loadAllUsers() { const snap = await db.ref('users').once('value'); allUsers = snap.val() || {}; }
     async function loadAllChannels() { const snap = await db.ref('channels').once('value'); allChannels = snap.val() || {}; }
 
@@ -454,14 +385,12 @@
         }
     }
 
-    // ГЛАВНОЕ: исправленное переключение чатов
+    // ИСПРАВЛЕННАЯ ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ЧАТОВ
     async function openChat(chat) {
-        // Полностью отключаем старый слушатель
         if(currentMessagesListener) {
             currentMessagesListener.off();
             currentMessagesListener = null;
         }
-        // Сбрасываем временные данные
         replyToMsg = null;
         editingMessage = null;
         if(replyPreview) replyPreview.style.display = 'none';
@@ -483,16 +412,6 @@
         renderChatsList();
         if(chat.type === 'channel') channelInfoBtn.style.display = 'inline-block';
         else channelInfoBtn.style.display = 'none';
-        
-        // Черновик
-        const draftKey = `draft_${chat.id}_${chat.type}`;
-        if(localStorage.getItem(draftKey)) messageInput.value = localStorage.getItem(draftKey);
-        messageInput.oninput = () => {
-            localStorage.setItem(draftKey, messageInput.value);
-            if(typingTimeout) clearTimeout(typingTimeout);
-            db.ref(`typing/${chat.type === 'private' ? chat.id : 'channel_'+chat.id}/${currentUser.uid}`).set(true);
-            typingTimeout = setTimeout(() => db.ref(`typing/${chat.type === 'private' ? chat.id : 'channel_'+chat.id}/${currentUser.uid}`).remove(), 1500);
-        };
     }
 
     function renderMessages(msgs) {
@@ -500,48 +419,16 @@
         messagesArea.innerHTML = '';
         if(!msgs.length) { messagesArea.innerHTML = '<div style="text-align:center;color:var(--text-secondary);">Сообщений нет</div>'; return; }
         for(let msg of msgs) {
-            if(blockedUsers.includes(msg.fromUid) && msg.fromUid !== currentUser.uid) continue;
             const isSelf = msg.fromUid === currentUser.uid;
             const msgDiv = document.createElement('div'); msgDiv.className = `message ${isSelf ? 'message-self' : ''}`; msgDiv.dataset.id = msg.id;
             const bubble = document.createElement('div'); bubble.className = 'message-bubble';
             if(msg.mediaType === 'image') bubble.innerHTML = `<img src="${msg.text}" style="max-width:200px; border-radius:12px;">`;
-            else if(msg.mediaType === 'video') bubble.innerHTML = `<video controls src="${msg.text}" style="max-width:200px; border-radius:12px;"></video>`;
-            else if(msg.mediaType === 'audio') bubble.innerHTML = `<audio controls src="${msg.text}"></audio>`;
-            else if(msg.mediaType === 'file') bubble.innerHTML = `<a href="${msg.text}" download>📎 Файл</a>`;
-            else if(msg.mediaType === 'location') bubble.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${msg.text}`;
-            else if(msg.mediaType === 'poll') {
-                let pollHtml = `<strong>${escapeHtml(msg.text)}</strong><div class="poll-options" data-poll-id="${msg.id}">`;
-                const options = msg.pollOptions || [];
-                const totalVotes = Object.values(msg.pollVotes || {}).reduce((a,b)=>a+Object.keys(b||{}).length,0);
-                options.forEach(opt => {
-                    const votes = msg.pollVotes?.[opt] ? Object.keys(msg.pollVotes[opt]).length : 0;
-                    const percent = totalVotes ? (votes/totalVotes*100).toFixed(0) : 0;
-                    pollHtml += `<div class="poll-option"><button class="vote-btn" data-opt="${escapeHtml(opt)}">🗳️</button> ${escapeHtml(opt)} (${percent}%)<div class="poll-bar" style="width:${percent}%;"></div></div>`;
-                });
-                pollHtml += `<small>Всего голосов: ${totalVotes}</small></div>`;
-                bubble.innerHTML = pollHtml;
-                setTimeout(() => {
-                    document.querySelectorAll(`[data-poll-id="${msg.id}"] .vote-btn`).forEach(btn => {
-                        btn.onclick = () => votePoll(msg.id, btn.dataset.opt);
-                    });
-                }, 100);
-            }
-            else if(msg.mediaType === 'sticker') bubble.innerHTML = `<span class="sticker">${msg.text}</span>`;
-            else bubble.innerHTML = formatMarkdown(emojiReplacer(escapeHtml(msg.text)));
+            else bubble.innerText = msg.text;
             if(msg.replyTo) bubble.innerHTML = `<small style="opacity:0.7;">↳ ${escapeHtml(msg.replyTo.text)}</small><br>${bubble.innerHTML}`;
             const meta = document.createElement('div'); meta.className = 'message-meta';
             const authorName = isSelf ? 'Вы' : (msg.fromNick || (allUsers[msg.fromUid]?.nickname) || 'Пользователь');
-            meta.innerHTML = `<span>${authorName} · ${formatTime(msg.timestamp)}</span>${msg.edited ? ' <span>(ред.)</span>' : ''}`;
-            const reactionsDiv = document.createElement('div'); reactionsDiv.className = 'reactions';
-            if(msg.reactions) {
-                Object.entries(msg.reactions).forEach(([react, users]) => {
-                    const rSpan = document.createElement('span'); rSpan.className = 'reaction'; rSpan.innerText = `${react} ${Object.keys(users).length}`;
-                    rSpan.onclick = (e) => { e.stopPropagation(); addReaction(msg.id, react); };
-                    reactionsDiv.appendChild(rSpan);
-                });
-            }
-            msgDiv.appendChild(bubble); msgDiv.appendChild(meta); if(reactionsDiv.children.length) msgDiv.appendChild(reactionsDiv);
-            msgDiv.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e, msg.id, msg.text, msg.mediaType, msg.fromUid); };
+            meta.innerHTML = `${authorName} · ${formatTime(msg.timestamp)}${msg.edited ? ' (ред.)' : ''}`;
+            msgDiv.appendChild(bubble); msgDiv.appendChild(meta);
             messagesArea.appendChild(msgDiv);
         }
         messagesArea.scrollTop = messagesArea.scrollHeight;
@@ -559,72 +446,9 @@
             if(currentChat.type === 'private') await db.ref(`conversations/${currentChat.id}`).update({ lastMessage: text, lastUpdated: Date.now() });
         }
         messageInput.value = '';
-        const draftKey = `draft_${currentChat.id}_${currentChat.type}`;
-        localStorage.removeItem(draftKey);
         await loadUserChats();
-        if(notificationsEnabled && Notification.permission === 'granted') new Notification('Сообщение отправлено', {body: text});
     }
 
-    function showContextMenu(e, msgId, msgText, mediaType, fromUid) {
-        const menu = document.createElement('div'); menu.className = 'context-menu';
-        let items = `<div class="context-menu-item" data-action="copy">📋 Копировать</div><div class="context-menu-item" data-action="reply">↩️ Ответить</div><div class="context-menu-item" data-action="react">😊 Реакция</div><div class="context-menu-item" data-action="forward">📤 Переслать</div>`;
-        if(fromUid === currentUser.uid) items += `<div class="context-menu-item" data-action="edit">✏️ Редактировать</div><div class="context-menu-item" data-action="delete">🗑️ Удалить</div>`;
-        menu.innerHTML = items;
-        document.body.appendChild(menu);
-        menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px'; menu.style.display = 'block';
-        const handleClick = async (action) => {
-            if(action === 'copy') navigator.clipboard.writeText(msgText);
-            if(action === 'reply') { replyToMsg = { id:msgId, text:msgText }; replyPreview.innerText = `Ответ: ${msgText.substring(0,50)}`; replyPreview.style.display = 'block'; }
-            if(action === 'react') { currentMessageReaction = msgId; reactionModal.classList.add('active'); }
-            if(action === 'forward') { forwardMessage = { id:msgId, text:msgText, mediaType }; await showForwardChats(); }
-            if(action === 'edit') { editingMessage = msgId; messageInput.value = msgText; messageInput.focus(); }
-            if(action === 'delete') { if(confirm('Удалить сообщение?')) await db.ref(`${currentChat.type==='private'?`messages/${currentChat.id}`:`channel_messages/${currentChat.id}`}/${msgId}`).remove(); }
-            menu.remove();
-        };
-        menu.querySelectorAll('.context-menu-item').forEach(item => item.onclick = () => handleClick(item.dataset.action));
-        document.addEventListener('click', function rm() { if(menu) menu.remove(); document.removeEventListener('click', rm); }, {once:true});
-    }
-
-    async function addReaction(msgId, reaction) {
-        const path = `${currentChat.type==='private'?`messages/${currentChat.id}`:`channel_messages/${currentChat.id}`}/${msgId}/reactions/${reaction}`;
-        const snap = await db.ref(path).once('value');
-        let users = snap.val() || {};
-        if(users[currentUser.uid]) delete users[currentUser.uid];
-        else users[currentUser.uid] = true;
-        await db.ref(path).set(users);
-    }
-
-    async function votePoll(pollId, option) {
-        const path = `${currentChat.type==='private'?`messages/${currentChat.id}`:`channel_messages/${currentChat.id}`}/${pollId}/pollVotes/${option}/${currentUser.uid}`;
-        const snap = await db.ref(path).once('value');
-        if(!snap.exists()) await db.ref(path).set(true);
-        else await db.ref(path).remove();
-        // обновить отображение
-        const msgSnap = await db.ref(`${currentChat.type==='private'?`messages/${currentChat.id}`:`channel_messages/${currentChat.id}`}/${pollId}`).once('value');
-        const msg = msgSnap.val();
-        renderMessages([msg]);
-    }
-
-    async function showForwardChats() {
-        forwardChatsList.innerHTML = '';
-        for(let chat of userChats) {
-            if(chat.id === currentChat?.id) continue;
-            const div = document.createElement('div'); div.className = 'search-result'; div.innerHTML = `<i class="fas ${chat.type==='private'?'fa-user':'fa-bullhorn'}"></i> ${escapeHtml(chat.name)}`;
-            div.onclick = async () => {
-                const targetPath = chat.type === 'private' ? `messages/${chat.id}` : `channel_messages/${chat.id}`;
-                const msgData = { fromUid: currentUser.uid, fromNick: currentUser.displayName, text: forwardMessage.text, timestamp: Date.now() };
-                if(forwardMessage.mediaType) { msgData.mediaType = forwardMessage.mediaType; msgData.text = forwardMessage.text; }
-                await db.ref(targetPath).push(msgData);
-                if(chat.type === 'private') await db.ref(`conversations/${chat.id}`).update({ lastMessage: forwardMessage.text, lastUpdated: Date.now() });
-                forwardModal.classList.remove('active');
-                alert('Переслано!');
-            };
-            forwardChatsList.appendChild(div);
-        }
-        forwardModal.classList.add('active');
-    }
-
-    // Поиск
     function setupSearch() {
         let debounce;
         globalSearch.addEventListener('input', async (e) => {
@@ -661,7 +485,6 @@
         globalSearch.value=''; searchResultsPanel.style.display='none';
     }
 
-    // Каналы
     confirmCreateChannel.onclick = async () => {
         const name = channelNameInput.value.trim(); if(!name) return alert("Введите название");
         if(Object.values(allChannels).some(ch=>ch.name.toLowerCase()===name.toLowerCase())) return alert("Канал уже существует");
@@ -671,75 +494,23 @@
         await loadAllChannels(); await loadUserChats();
     };
 
-    // Отправка
     sendBtn.onclick = () => sendMessage(messageInput.value);
     messageInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(messageInput.value); });
     attachBtn.onclick = () => { const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange = (e) => { const file=e.target.files[0]; const reader=new FileReader(); reader.onload=()=>sendMessage(null,'image',reader.result); reader.readAsDataURL(file); }; inp.click(); };
-    fileBtn.onclick = () => { const inp = document.createElement('input'); inp.type='file'; inp.onchange = (e) => { const file=e.target.files[0]; const reader=new FileReader(); reader.onload=()=>sendMessage(null,'file',reader.result); reader.readAsDataURL(file); }; inp.click(); };
-    locationBtn.onclick = () => { if(navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => { sendMessage(null, 'location', `${pos.coords.latitude},${pos.coords.longitude}`); }); else alert("Геолокация не поддерживается"); };
-    pollBtn.onclick = () => pollModal.classList.add('active');
-    sendPollBtn.onclick = () => {
-        const q = pollQuestion.value.trim();
-        const opts = pollOptions.value.trim();
-        if(!q || !opts) return;
-        sendMessage(null, 'poll', q, { pollOptions: opts.split(',').map(o=>o.trim()) });
-        pollModal.classList.remove('active');
-        pollQuestion.value = '';
-        pollOptions.value = '';
-    };
-    closePollModal.onclick = () => pollModal.classList.remove('active');
-    emojiBtn.onclick = () => { const picker = document.createElement('div'); picker.style.position='absolute'; picker.style.bottom='70px'; picker.style.right='20px'; picker.style.zIndex='100'; document.body.appendChild(picker); import('https://cdn.jsdelivr.net/npm/emoji-picker-element@1.21.0/index.js').then(({Picker})=>{ new Picker({ dataSource: 'https://cdn.jsdelivr.net/npm/emoji-picker-element-data@1.4.0/emojibase/data.json' }).then(p => { picker.appendChild(p); p.addEventListener('emoji-click', e=>{ messageInput.value += e.detail.unicode; picker.remove(); }); }); }); };
-    voiceBtn.onclick = () => voiceModal.classList.add('active');
-    startRecordBtn.onclick = async () => { const stream = await navigator.mediaDevices.getUserMedia({audio:true}); mediaRecorder = new MediaRecorder(stream); audioChunks=[]; mediaRecorder.ondataavailable=e=>audioChunks.push(e.data); mediaRecorder.onstop=()=>{ const blob=new Blob(audioChunks,{type:'audio/webm'}); const url=URL.createObjectURL(blob); audioPlayback.src=url; sendAudioBtn.disabled=false; }; mediaRecorder.start(); startRecordBtn.disabled=true; stopRecordBtn.disabled=false; };
-    stopRecordBtn.onclick = () => { if(mediaRecorder) mediaRecorder.stop(); startRecordBtn.disabled=false; stopRecordBtn.disabled=true; };
-    sendAudioBtn.onclick = () => { if(audioPlayback.src) sendMessage(null,'audio',audioPlayback.src); voiceModal.classList.remove('active'); audioPlayback.src=''; sendAudioBtn.disabled=true; };
-    closeVoiceModal.onclick = () => voiceModal.classList.remove('active');
-    stickerBtn.onclick = () => { const picker = document.createElement('div'); picker.style.position='absolute'; picker.style.bottom='70px'; picker.style.right='20px'; picker.style.background='var(--bg-card)'; picker.style.borderRadius='20px'; picker.style.padding='10px'; picker.style.display='grid'; picker.style.gridTemplateColumns='repeat(4,1fr)'; picker.style.gap='8px'; stickers.forEach(s => { const span = document.createElement('span'); span.className='sticker'; span.innerText=s; span.onclick=()=>{ sendMessage(null,'sticker',s); picker.remove(); }; picker.appendChild(span); }); document.body.appendChild(picker); };
-
-    // Экспорт JSON и PDF
     exportChatBtn.onclick = async () => { if(!currentChat) return; const path = currentChat.type==='private'?`messages/${currentChat.id}`:`channel_messages/${currentChat.id}`; const snap = await db.ref(path).once('value'); const data = snap.val(); const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`chat_${currentChat.id}.json`; a.click(); URL.revokeObjectURL(url); };
-    exportPdfBtn.onclick = async () => {
-        const element = document.createElement('div'); element.innerHTML = messagesArea.innerHTML; element.style.fontFamily = 'monospace'; element.style.padding = '20px';
-        html2pdf().from(element).set({ margin: 0.5, filename: `chat_${currentChat?.id}.pdf` }).save();
-    };
     clearChatBtn.onclick = async () => { if(!currentChat || !confirm("Очистить историю?")) return; const path = currentChat.type==='private'?`messages/${currentChat.id}`:`channel_messages/${currentChat.id}`; await db.ref(path).remove(); if(currentChat.type==='private') await db.ref(`conversations/${currentChat.id}`).update({ lastMessage:'', lastUpdated:Date.now() }); await loadUserChats(); if(currentMessagesListener) { currentMessagesListener.off(); currentMessagesListener=null; } messagesArea.innerHTML='<div style="text-align:center;color:var(--text-secondary);">История очищена</div>'; };
     channelInfoBtn.onclick = () => { if(currentChat && currentChat.type==='channel') { const ch = allChannels[currentChat.id]; alert(`Канал: ${ch.name}\nОписание: ${ch.description||'Нет'}\nСоздатель: ${allUsers[ch.createdBy]?.nickname||'?'}`); } };
 
-    // Настройки
     settingsBtn.onclick = () => settingsModal.classList.add('active');
     closeSettingsBtn.onclick = () => settingsModal.classList.remove('active');
     themeToggleBtn.onclick = () => { document.body.classList.toggle('light'); localStorage.setItem('lederg_theme', document.body.classList.contains('light')?'light':'dark'); };
     if(localStorage.getItem('lederg_theme') === 'light') document.body.classList.add('light');
-    document.querySelectorAll('.theme-color').forEach(el => {
-        el.onclick = () => {
-            const theme = el.dataset.theme;
-            if(theme === 'light') document.body.classList.add('light');
-            else if(theme === 'dark') document.body.classList.remove('light');
-            if(theme === 'green') document.documentElement.style.setProperty('--accent', '#2b9c5e');
-            if(theme === 'blue') document.documentElement.style.setProperty('--accent', '#3b82f6');
-            if(theme === 'purple') document.documentElement.style.setProperty('--accent', '#8b5cf6');
-            localStorage.setItem('lederg_accent', theme);
-        };
-    });
-    changeNickBtn.onclick = async () => { const newNick = prompt("Новый ник:", currentUser.displayName); if(!newNick) return; const trimmed = newNick.trim(); const snap = await db.ref('nicknames').orderByValue().equalTo(trimmed).once('value'); if(snap.exists() && snap.val() !== currentUser.uid) { alert("Ник занят"); return; } const old = currentUser.displayName; await db.ref(`users/${currentUser.uid}/nickname`).set(trimmed); await db.ref(`nicknames/${trimmed}`).set(currentUser.uid); if(old) await db.ref(`nicknames/${old}`).remove(); currentUser.displayName = trimmed; userNickDisplay.innerText = trimmed; userAvatar.innerText = trimmed.charAt(0).toUpperCase(); alert("Ник изменён"); };
+    changeNickBtn.onclick = async () => { const newNick = prompt("Новый ник:"); if(!newNick) return; const trimmed = newNick.trim(); const snap = await db.ref('nicknames').orderByValue().equalTo(trimmed).once('value'); if(snap.exists() && snap.val() !== currentUser.uid) { alert("Ник занят"); return; } const old = currentUser.displayName; await db.ref(`users/${currentUser.uid}/nickname`).set(trimmed); await db.ref(`nicknames/${trimmed}`).set(currentUser.uid); if(old) await db.ref(`nicknames/${old}`).remove(); currentUser.displayName = trimmed; userNickDisplay.innerText = trimmed; userAvatar.innerText = trimmed.charAt(0).toUpperCase(); alert("Ник изменён"); };
     changePasswordBtn.onclick = async () => { const newPass = prompt("Новый пароль (мин 6 символов):"); if(newPass && newPass.length>=6) { try{ await currentUser.updatePassword(newPass); alert("Пароль изменён"); } catch(e){ alert(e.message); } } else alert("Слишком короткий"); };
     notificationsToggleBtn.onclick = () => { notificationsEnabled = !notificationsEnabled; notificationsToggleBtn.innerText = `🔔 Уведомления: ${notificationsEnabled?'Вкл':'Выкл'}`; localStorage.setItem('lederg_notifications', notificationsEnabled); };
     if(localStorage.getItem('lederg_notifications') === 'false') { notificationsEnabled=false; notificationsToggleBtn.innerText='🔔 Уведомления: Выкл'; }
     if(Notification.permission !== 'granted') Notification.requestPermission();
-    blockUserBtn.onclick = async () => {
-        const uid = prompt("UID пользователя для блокировки (можно найти в консоли)");
-        if(uid && uid !== currentUser.uid) {
-            await db.ref(`blocked/${currentUser.uid}/${uid}`).set(true);
-            blockedUsers.push(uid);
-            alert("Пользователь заблокирован");
-        }
-    };
 
-    // Реакции
-    document.querySelectorAll('#reactionModal [data-reaction]').forEach(el => { el.onclick = () => { if(currentMessageReaction) addReaction(currentMessageReaction, el.dataset.reaction); reactionModal.classList.remove('active'); }; });
-    closeForwardModal.onclick = () => forwardModal.classList.remove('active');
-
-    // Аутентификация
     let isLoginMode = true;
     toggleMode.onclick = () => { isLoginMode = !isLoginMode; nicknameInput.style.display = isLoginMode?'none':'block'; submitBtn.innerText = isLoginMode?'Войти':'Зарегистрироваться'; toggleMode.innerText = isLoginMode?'Создать аккаунт':'Уже есть аккаунт? Войти'; };
     nicknameInput.style.display = 'none';
@@ -770,9 +541,6 @@
             userAvatar.innerText = data.nickname.charAt(0).toUpperCase();
             authScreen.style.display = 'none';
             chatScreen.style.display = 'block';
-            // загружаем блокировки
-            const blockedSnap = await db.ref(`blocked/${currentUser.uid}`).once('value');
-            blockedUsers = Object.keys(blockedSnap.val() || {});
             await loadAllUsers(); await loadAllChannels(); await loadUserChats(); setupSearch();
         } else {
             authScreen.style.display = 'flex';
