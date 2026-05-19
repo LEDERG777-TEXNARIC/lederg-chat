@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LEDERG TG Ultra | Фикс интерфейса</title>
+    <title>LEDERG TG Ultra — Мессенджер будущего</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -33,12 +33,35 @@
             --border: #2b3643;
             --message-self: #2b9c5e;
             --message-other: #1f2a36;
+            --bg-image: none;
         }
         body {
             font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: var(--bg-page);
             height: 100vh;
             overflow: hidden;
+            transition: background 0.2s;
+        }
+        /* LEDERG стильный фон (сетка + логотип) */
+        body.lederg-bg {
+            background-image: radial-gradient(circle at 20% 30%, rgba(43,156,94,0.08) 2%, transparent 2.5%),
+                              radial-gradient(circle at 80% 70%, rgba(43,156,94,0.06) 1.5%, transparent 2%),
+                              repeating-linear-gradient(45deg, rgba(43,156,94,0.03) 0px, rgba(43,156,94,0.03) 2px, transparent 2px, transparent 8px);
+            background-size: 40px 40px, 50px 50px, 20px 20px;
+            position: relative;
+        }
+        body.lederg-bg::before {
+            content: "LEDERG";
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 3rem;
+            font-weight: bold;
+            color: rgba(43,156,94,0.1);
+            pointer-events: none;
+            font-family: monospace;
+            transform: rotate(-5deg);
+            z-index: 0;
         }
         body.light {
             --bg-page: #ffffff;
@@ -50,6 +73,9 @@
             --border: #ced0d4;
             --message-self: #e4e6eb;
             --message-other: #ffffff;
+        }
+        body.light.lederg-bg::before {
+            color: rgba(43,156,94,0.15);
         }
         /* Анимации */
         @keyframes fadeIn {
@@ -64,6 +90,8 @@
             height: 100vh;
             background: linear-gradient(135deg, #17212b, #0e1621);
             padding: 20px;
+            position: relative;
+            z-index: 1;
         }
         .auth-card {
             background: var(--bg-card);
@@ -105,12 +133,19 @@
             color: var(--text-secondary);
             cursor: pointer;
         }
+        .error-msg {
+            color: #ff8a6f;
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.8rem;
+        }
         /* Основной экран */
         .chat-screen {
             display: none;
             height: 100vh;
             width: 100%;
             position: relative;
+            z-index: 1;
         }
         .main-layout {
             display: flex;
@@ -150,6 +185,17 @@
             justify-content: center;
             font-weight: bold;
             color: white;
+            position: relative;
+        }
+        .online-dot-small {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            background: #2b9c5e;
+            border-radius: 50%;
+            border: 2px solid var(--bg-card);
         }
         .user-nick {
             font-weight: bold;
@@ -261,14 +307,14 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        /* Область чата — исправлено: теперь занимает всё место */
+        /* Область чата */
         .chat-area {
             flex: 1;
             display: flex;
             flex-direction: column;
             background: var(--bg-page);
             height: 100%;
-            min-height: 0; /* важно для flex-дочерних элементов */
+            min-height: 0;
         }
         .chat-header {
             padding: 12px 16px;
@@ -298,6 +344,7 @@
             color: var(--text-secondary);
             cursor: pointer;
             font-size: 1.2rem;
+            margin-left: 12px;
         }
         .messages-area {
             flex: 1;
@@ -306,7 +353,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            min-height: 0; /* критично для скролла */
+            min-height: 0;
         }
         .message {
             display: flex;
@@ -471,6 +518,17 @@
             z-index: 50;
             display: none;
         }
+        .channel-members-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 12px;
+        }
+        .member-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid var(--border);
+        }
     </style>
 </head>
 <body>
@@ -518,7 +576,9 @@
                     <button id="backBtn" class="back-btn"><i class="fas fa-bars"></i></button>
                     <div class="chat-title" id="currentChatTitle">LEDERG TG</div>
                     <div class="chat-actions">
-                        <button id="searchInChatBtn" title="Поиск"><i class="fas fa-search"></i></button>
+                        <button id="searchInChatBtn" title="Поиск по чату"><i class="fas fa-search"></i></button>
+                        <button id="channelInfoBtn" title="Информация о канале" style="display:none;"><i class="fas fa-info-circle"></i></button>
+                        <button id="exportChatBtn" title="Экспорт чата"><i class="fas fa-download"></i></button>
                     </div>
                 </div>
                 <div id="typingIndicator" class="typing-indicator"></div>
@@ -527,6 +587,7 @@
                     <div class="input-row">
                         <button id="emojiBtn" class="tool-btn"><i class="far fa-smile-wink"></i></button>
                         <button id="attachBtn" class="tool-btn"><i class="fas fa-paperclip"></i></button>
+                        <button id="voiceBtn" class="tool-btn"><i class="fas fa-microphone"></i></button>
                         <input type="text" id="messageInput" placeholder="Сообщение...">
                         <button id="sendBtn" class="tool-btn" style="color:var(--accent)"><i class="fas fa-paper-plane"></i></button>
                     </div>
@@ -552,8 +613,11 @@
     <div class="modal-content">
         <h3>Настройки</h3>
         <button id="themeToggleBtn">🌓 Светлая/Тёмная тема</button>
+        <button id="ledergBgToggleBtn" style="margin-top:8px;">🎨 LEDERG стильный фон</button>
         <button id="changeNickBtn" style="margin-top:8px;">✏️ Сменить ник</button>
         <button id="changePasswordBtn" style="margin-top:8px;">🔑 Сменить пароль</button>
+        <button id="clearChatHistoryBtn" style="margin-top:8px;">🗑️ Очистить историю чата</button>
+        <button id="notificationsToggleBtn" style="margin-top:8px;">🔔 Уведомления: Вкл</button>
         <button id="closeSettings" style="margin-top:16px;">Закрыть</button>
     </div>
 </div>
@@ -562,6 +626,28 @@
         <h3>Поиск по сообщениям</h3>
         <input type="text" id="searchMessagesInput" placeholder="Слово...">
         <div id="searchMessagesResults" style="max-height:200px; overflow-y:auto; margin-top:12px;"></div>
+        <button id="closeSearchModal" style="margin-top:12px;">Закрыть</button>
+    </div>
+</div>
+<div id="channelInfoModal" class="modal">
+    <div class="modal-content">
+        <h3>Информация о канале</h3>
+        <p><strong>Название:</strong> <span id="infoChannelName"></span></p>
+        <p><strong>Описание:</strong> <span id="infoChannelDesc"></span></p>
+        <p><strong>Участники:</strong> <span id="infoMemberCount"></span></p>
+        <div id="membersList" class="channel-members-list"></div>
+        <button id="leaveChannelBtn" style="background:#ff8a6f; margin-top:12px;">Покинуть канал</button>
+        <button id="closeChannelInfo" style="margin-top:8px;">Закрыть</button>
+    </div>
+</div>
+<div id="voiceModal" class="modal">
+    <div class="modal-content">
+        <h3>Голосовое сообщение</h3>
+        <button id="startRecordBtn">🎤 Начать запись</button>
+        <button id="stopRecordBtn" disabled>⏹️ Остановить</button>
+        <audio id="audioPlayback" controls style="width:100%; margin-top:12px;"></audio>
+        <button id="sendAudioBtn" disabled>📤 Отправить</button>
+        <button id="closeVoiceModal" style="margin-top:8px;">Отмена</button>
     </div>
 </div>
 
@@ -591,8 +677,11 @@
     let typingTimeout = null;
     let replyToMsg = null;
     let editingMessage = null;
-    let audioRecorder = null;
+    let mediaRecorder = null;
     let audioChunks = [];
+    let isRecording = false;
+    let notificationsEnabled = true;
+    let ledergBackground = localStorage.getItem('lederg_bg') === 'true';
 
     // DOM
     const authScreen = document.getElementById('authScreen');
@@ -624,21 +713,47 @@
     const closeModal = document.getElementById('closeModal');
     const settingsModal = document.getElementById('settingsModal');
     const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const ledergBgToggleBtn = document.getElementById('ledergBgToggleBtn');
     const changeNickBtn = document.getElementById('changeNickBtn');
     const changePasswordBtn = document.getElementById('changePasswordBtn');
+    const clearChatHistoryBtn = document.getElementById('clearChatHistoryBtn');
+    const notificationsToggleBtn = document.getElementById('notificationsToggleBtn');
     const closeSettings = document.getElementById('closeSettings');
     const searchInChatBtn = document.getElementById('searchInChatBtn');
     const searchMessagesModal = document.getElementById('searchMessagesModal');
     const searchMessagesInput = document.getElementById('searchMessagesInput');
     const searchMessagesResults = document.getElementById('searchMessagesResults');
+    const closeSearchModal = document.getElementById('closeSearchModal');
     const emojiBtn = document.getElementById('emojiBtn');
     const attachBtn = document.getElementById('attachBtn');
+    const voiceBtn = document.getElementById('voiceBtn');
     const typingIndicator = document.getElementById('typingIndicator');
     const replyPreview = document.getElementById('replyPreview');
+    const exportChatBtn = document.getElementById('exportChatBtn');
+    const channelInfoBtn = document.getElementById('channelInfoBtn');
+    const channelInfoModal = document.getElementById('channelInfoModal');
+    const infoChannelName = document.getElementById('infoChannelName');
+    const infoChannelDesc = document.getElementById('infoChannelDesc');
+    const infoMemberCount = document.getElementById('infoMemberCount');
+    const membersListDiv = document.getElementById('membersList');
+    const leaveChannelBtn = document.getElementById('leaveChannelBtn');
+    const closeChannelInfo = document.getElementById('closeChannelInfo');
+    const voiceModal = document.getElementById('voiceModal');
+    const startRecordBtn = document.getElementById('startRecordBtn');
+    const stopRecordBtn = document.getElementById('stopRecordBtn');
+    const audioPlayback = document.getElementById('audioPlayback');
+    const sendAudioBtn = document.getElementById('sendAudioBtn');
+    const closeVoiceModal = document.getElementById('closeVoiceModal');
 
     // Helper
     function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
     function formatTime(ts) { return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+    function formatMarkdown(text) {
+        if(!text) return '';
+        return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
+    }
+    function showNotification(title, body) { if(notificationsEnabled && Notification.permission === 'granted') new Notification(title, {body}); }
+    if(Notification.permission !== 'granted') Notification.requestPermission();
 
     // Загрузка данных
     async function loadAllUsers() { const snap = await db.ref('users').once('value'); allUsers = snap.val() || {}; }
@@ -702,8 +817,6 @@
             const msgs = Object.entries(data).map(([id,m])=>({id,...m})).sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
             renderMessages(msgs);
         });
-        if(window.innerWidth<=680) document.getElementById('sidebar').classList.remove('open');
-        renderChatsList();
         // Typing listener
         const typingRef = db.ref(`typing/${chat.type === 'private' ? chat.id : 'channel_'+chat.id}`);
         typingRef.on('value', (snap) => {
@@ -713,6 +826,11 @@
                 setTimeout(()=>typingIndicator.innerText='', 2000);
             } else typingIndicator.innerText = '';
         });
+        if(window.innerWidth<=680) document.getElementById('sidebar').classList.remove('open');
+        renderChatsList();
+        // Показать кнопку инфо для каналов
+        if(chat.type === 'channel') channelInfoBtn.style.display = 'inline-block';
+        else channelInfoBtn.style.display = 'none';
     }
 
     function renderMessages(msgs) {
@@ -726,7 +844,7 @@
             const bubble = document.createElement('div'); bubble.className = 'message-bubble';
             if(msg.mediaType === 'image') bubble.innerHTML = `<img src="${msg.text}" style="max-width:200px; border-radius:12px;">`;
             else if(msg.mediaType === 'audio') bubble.innerHTML = `<audio controls src="${msg.text}" style="max-width:200px;"></audio>`;
-            else bubble.innerText = msg.text;
+            else bubble.innerHTML = formatMarkdown(msg.text);
             if(msg.replyTo) bubble.innerHTML = `<small style="opacity:0.7;">↳ ${escapeHtml(msg.replyTo.text)}</small><br>${bubble.innerHTML}`;
             const meta = document.createElement('div'); meta.className = 'message-meta';
             meta.innerHTML = `<span>${isSelf ? 'Вы' : (msg.fromNick || 'Пользователь')} · ${formatTime(msg.timestamp)}</span>`;
@@ -748,6 +866,14 @@
 
     async function sendMessage(text, mediaType=null, mediaData=null) {
         if(!text && !mediaData) return;
+        // Проверка прав в канале (только админ)
+        if(currentChat?.type === 'channel') {
+            const channelData = allChannels[currentChat.id];
+            if(channelData && channelData.createdBy !== currentUser.uid && !channelData.admins?.[currentUser.uid]) {
+                alert("В этом канале писать могут только администраторы.");
+                return;
+            }
+        }
         const msgData = { fromUid: currentUser.uid, fromNick: currentUser.displayName, timestamp: Date.now() };
         if(mediaType && mediaData) { msgData.mediaType = mediaType; msgData.text = mediaData; }
         else msgData.text = text;
@@ -759,6 +885,7 @@
         }
         messageInput.value = ''; replyToMsg=null; replyPreview.style.display='none';
         await loadUserChats();
+        showNotification(`Новое сообщение от ${currentUser.displayName}`, text);
     }
 
     function showContextMenu(e, msgId, msgText, mediaType) {
@@ -825,7 +952,7 @@
         await loadUserChats(); const chat = userChats.find(c=>c.type==='private'&&c.otherId===otherUid); if(chat) openChat(chat);
         globalSearch.value=''; searchResultsPanel.style.display='none';
     }
-    async function joinChannel(channelId) {
+    async function joinChannel(channelId, channelName) {
         await db.ref(`channel_members/${channelId}/${currentUser.uid}`).set(true);
         await loadAllChannels(); await loadUserChats(); const chat = userChats.find(c=>c.type==='channel'&&c.id===channelId); if(chat) openChat(chat);
         globalSearch.value=''; searchResultsPanel.style.display='none';
@@ -835,7 +962,8 @@
     confirmCreateChannel.onclick = async () => {
         const name = channelNameInput.value.trim(); if(!name) return alert("Введите название");
         if(Object.values(allChannels).some(ch=>ch.name.toLowerCase()===name.toLowerCase())) return alert("Канал уже существует");
-        const newRef = db.ref('channels').push(); await newRef.set({ name, description:channelDescInput.value, createdBy:currentUser.uid, createdAt:Date.now() });
+        const newRef = db.ref('channels').push(); 
+        await newRef.set({ name, description:channelDescInput.value, createdBy:currentUser.uid, createdAt:Date.now(), admins: { [currentUser.uid]: true } });
         await db.ref(`channel_members/${newRef.key}/${currentUser.uid}`).set(true);
         channelModal.classList.remove('active'); channelNameInput.value=''; channelDescInput.value='';
         await loadAllChannels(); await loadUserChats();
@@ -852,6 +980,83 @@
     attachBtn.onclick = () => { const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange = (e) => { const file=e.target.files[0]; const reader=new FileReader(); reader.onload=()=>sendMessage(null,'image',reader.result); reader.readAsDataURL(file); }; inp.click(); };
     emojiBtn.onclick = () => { const pickerDiv = document.createElement('div'); pickerDiv.className='emoji-picker'; document.body.appendChild(pickerDiv); import('https://cdn.jsdelivr.net/npm/emoji-picker-element@1.21.0/index.js').then(({Picker})=>{ new Picker({ dataSource: 'https://cdn.jsdelivr.net/npm/emoji-picker-element-data@1.4.0/emojibase/data.json' }).then(picker => { pickerDiv.appendChild(picker); picker.addEventListener('emoji-click', e=>{ messageInput.value += e.detail.unicode; pickerDiv.remove(); }); }); }); };
     
+    // Голосовые сообщения
+    voiceBtn.onclick = () => voiceModal.classList.add('active');
+    startRecordBtn.onclick = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const url = URL.createObjectURL(blob);
+            audioPlayback.src = url;
+            sendAudioBtn.disabled = false;
+        };
+        mediaRecorder.start();
+        startRecordBtn.disabled = true;
+        stopRecordBtn.disabled = false;
+    };
+    stopRecordBtn.onclick = () => { if(mediaRecorder) mediaRecorder.stop(); startRecordBtn.disabled=false; stopRecordBtn.disabled=true; };
+    sendAudioBtn.onclick = () => { if(audioPlayback.src) sendMessage(null, 'audio', audioPlayback.src); voiceModal.classList.remove('active'); audioPlayback.src=''; sendAudioBtn.disabled=true; };
+    closeVoiceModal.onclick = () => voiceModal.classList.remove('active');
+
+    // Экспорт чата
+    exportChatBtn.onclick = async () => {
+        if(!currentChat) return;
+        const path = currentChat.type==='private' ? `messages/${currentChat.id}` : `channel_messages/${currentChat.id}`;
+        const snap = await db.ref(path).once('value');
+        const data = snap.val();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `chat_${currentChat.id}.json`; a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // Информация о канале
+    channelInfoBtn.onclick = async () => {
+        if(!currentChat || currentChat.type !== 'channel') return;
+        const channel = allChannels[currentChat.id];
+        if(!channel) return;
+        infoChannelName.innerText = channel.name;
+        infoChannelDesc.innerText = channel.description || 'Нет описания';
+        const membersSnap = await db.ref(`channel_members/${currentChat.id}`).once('value');
+        const members = membersSnap.val() || {};
+        const memberCount = Object.keys(members).length;
+        infoMemberCount.innerText = memberCount;
+        membersListDiv.innerHTML = '';
+        for(let uid of Object.keys(members)) {
+            const user = allUsers[uid];
+            if(user) {
+                const div = document.createElement('div'); div.className = 'member-item';
+                div.innerHTML = `<span>${escapeHtml(user.nickname)}</span> ${uid === channel.createdBy ? '<i class="fas fa-crown" style="color:gold;"></i>' : ''}`;
+                membersListDiv.appendChild(div);
+            }
+        }
+        channelInfoModal.classList.add('active');
+    };
+    leaveChannelBtn.onclick = async () => {
+        if(confirm("Вы уверены, что хотите покинуть канал?")) {
+            await db.ref(`channel_members/${currentChat.id}/${currentUser.uid}`).remove();
+            await loadUserChats();
+            channelInfoModal.classList.remove('active');
+            if(currentChat && currentChat.id === currentChat.id) currentChat = null;
+            messagesArea.innerHTML = '';
+            currentChatTitle.innerText = 'LEDERG TG';
+        }
+    };
+    closeChannelInfo.onclick = () => channelInfoModal.classList.remove('active');
+
+    // Очистка истории чата
+    clearChatHistoryBtn.onclick = async () => {
+        if(!currentChat) return;
+        if(confirm("Очистить всю историю этого чата?")) {
+            const path = currentChat.type==='private' ? `messages/${currentChat.id}` : `channel_messages/${currentChat.id}`;
+            await db.ref(path).remove();
+            if(currentChat.type==='private') await db.ref(`conversations/${currentChat.id}`).update({ lastMessage: '', lastUpdated: Date.now() });
+        }
+    };
+
     // Аутентификация
     let isLoginMode=true;
     toggleMode.onclick=()=>{ isLoginMode=!isLoginMode; nicknameInput.style.display=isLoginMode?'none':'block'; submitBtn.innerText=isLoginMode?'Войти':'Зарегистрироваться'; toggleMode.innerText=isLoginMode?'Создать аккаунт':'Уже есть аккаунт? Войти'; };
@@ -866,12 +1071,14 @@
     settingsBtn.onclick=()=>settingsModal.classList.add('active');
     closeSettings.onclick=()=>settingsModal.classList.remove('active');
     themeToggleBtn.onclick=()=>document.body.classList.toggle('light');
+    ledergBgToggleBtn.onclick=()=>{ document.body.classList.toggle('lederg-bg'); localStorage.setItem('lederg_bg', document.body.classList.contains('lederg-bg')); };
+    if(ledergBackground) document.body.classList.add('lederg-bg');
     changeNickBtn.onclick=async()=>{ const newNick=prompt('Новый ник:'); if(newNick){ await db.ref(`users/${currentUser.uid}/nickname`).set(newNick); await db.ref(`nicknames/${newNick}`).set(currentUser.uid); currentUser.displayName=newNick; userNickDisplay.innerText=newNick; } };
     changePasswordBtn.onclick=async()=>{ const newPass=prompt('Новый пароль (минимум 6 символов):'); if(newPass&&newPass.length>=6) await currentUser.updatePassword(newPass); else alert('Слишком короткий'); };
+    notificationsToggleBtn.onclick=()=>{ notificationsEnabled=!notificationsEnabled; notificationsToggleBtn.innerText=`🔔 Уведомления: ${notificationsEnabled?'Вкл':'Выкл'}`; };
     searchInChatBtn.onclick=()=>searchMessagesModal.classList.add('active');
     searchMessagesInput.oninput=()=>{ const query=searchMessagesInput.value.trim().toLowerCase(); if(!query||!currentChat) return; db.ref(`${currentChat.type==='private'?`messages/${currentChat.id}`:`channel_messages/${currentChat.id}`}`).once('value', snap=>{ const msgs=Object.values(snap.val()||{}).filter(m=>m.text?.toLowerCase().includes(query)); searchMessagesResults.innerHTML=msgs.map(m=>`<div style="padding:8px; border-bottom:1px solid var(--border);">${escapeHtml(m.text)}<br><small>${formatTime(m.timestamp)}</small></div>`).join(''); }); };
-    // закрыть поиск по сообщениям
-    document.querySelector('#searchMessagesModal .modal-content button:last-child')?.addEventListener('click',()=>searchMessagesModal.classList.remove('active'));
+    closeSearchModal.onclick=()=>searchMessagesModal.classList.remove('active');
 </script>
 </body>
 </html>
