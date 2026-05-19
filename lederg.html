@@ -3,212 +3,245 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>LEDERG v2.0 — чат без глюков</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>LEDERG Fire — мессенджер будущего</title>
+  <!-- Firebase SDK (compat для простоты) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     :root {
       --bg:#0f172a; --sidebar:#1e293b; --card:#334155; --text:#f8fafc;
       --msg-me:#2563eb; --msg-other:#334155; --accent:#3b82f6;
-      --border:rgba(255,255,255,0.1);
     }
     body.light {
       --bg:#f1f5f9; --sidebar:#ffffff; --card:#e2e8f0; --text:#0f172a;
-      --msg-me:#3b82f6; --msg-other:#e2e8f0; --accent:#2563eb;
-      --border:rgba(0,0,0,0.1);
+      --msg-me:#3b82f6; --msg-other:#e2e8f0;
     }
-    body { font-family:'Segoe UI',sans-serif; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
-    .app { display:flex; height:100vh; }
-    .auth { width:100%; max-width:400px; margin:auto; padding:2rem; background:var(--sidebar); border-radius:24px; box-shadow:0 25px 50px rgba(0,0,0,0.3); }
-    .auth h2 { text-align:center; margin-bottom:1.5rem; }
-    .auth input { width:100%; padding:12px; margin:8px 0; background:var(--bg); border:1px solid var(--border); border-radius:12px; color:var(--text); outline:none; }
+    body { font-family:system-ui; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
+    .auth { width:100%; max-width:400px; margin:auto; padding:2rem; background:var(--sidebar); border-radius:24px; }
+    .auth h2 { text-align:center; margin-bottom:1rem; }
     .auth .tabs { display:flex; gap:8px; margin-bottom:1rem; }
-    .auth .tab { flex:1; text-align:center; padding:8px; border-radius:12px; cursor:pointer; background:var(--card); }
+    .auth .tab { flex:1; text-align:center; padding:8px; border-radius:12px; background:var(--card); cursor:pointer; }
     .auth .tab.active { background:var(--accent); color:white; }
+    .auth input { width:100%; padding:12px; margin:8px 0; background:var(--bg); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:var(--text); }
     .auth button { width:100%; padding:12px; background:var(--accent); color:white; border:none; border-radius:12px; margin-top:8px; cursor:pointer; }
-    .error { color:#f87171; font-size:0.85rem; margin-top:4px; }
-    .chat { display:none; flex:1; flex-direction:column; }
-    .sidebar { width:280px; background:var(--sidebar); display:flex; flex-direction:column; border-right:1px solid var(--border); }
+    .error { color:#f87171; margin-top:8px; }
+    .chat-screen { display:none; height:100vh; flex-direction:column; }
+    .sidebar { width:280px; background:var(--sidebar); display:flex; flex-direction:column; border-right:1px solid rgba(255,255,255,0.1); }
     .profile { padding:16px; display:flex; align-items:center; gap:12px; }
-    .profile img { width:40px; height:40px; border-radius:50%; background:var(--accent); }
+    .profile .avatar { width:40px; height:40px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; }
     .chats { flex:1; overflow-y:auto; }
-    .chat-item { padding:12px; cursor:pointer; border-bottom:1px solid var(--border); display:flex; gap:12px; }
+    .chat-item { padding:12px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; gap:12px; align-items:center; }
     .chat-item:hover { background:var(--card); }
-    .chat-item .avatar { width:40px; height:40px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; }
     .main { flex:1; display:flex; flex-direction:column; }
-    .header { padding:16px; background:var(--sidebar); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
+    .header { padding:16px; background:var(--sidebar); border-bottom:1px solid rgba(255,255,255,0.1); }
     .messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
-    .msg { max-width:75%; padding:10px 14px; border-radius:18px; position:relative; }
+    .msg { max-width:75%; padding:10px 14px; border-radius:18px; }
     .msg.me { align-self:flex-end; background:var(--msg-me); color:white; }
     .msg.other { align-self:flex-start; background:var(--msg-other); }
-    .msg .time { font-size:0.7rem; opacity:0.7; margin-top:4px; }
     .input-area { padding:12px; background:var(--sidebar); display:flex; gap:8px; }
-    .input-area input { flex:1; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:24px; color:var(--text); outline:none; }
-    .fab { position:fixed; bottom:24px; right:24px; width:56px; height:56px; border-radius:28px; background:var(--accent); color:white; font-size:24px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
-    @media (max-width:640px) {
-      .sidebar { display:none; position:absolute; z-index:10; height:100%; }
-      .sidebar.open { display:flex; }
-    }
+    .input-area input { flex:1; padding:12px; background:var(--bg); border:1px solid rgba(255,255,255,0.1); border-radius:24px; color:var(--text); }
+    .fab { position:fixed; bottom:24px; right:24px; width:56px; height:56px; border-radius:28px; background:var(--accent); color:white; font-size:24px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+    @media (max-width:640px) { .sidebar { display:none; } .sidebar.open { display:flex; position:absolute; z-index:10; height:100%; } }
   </style>
 </head>
 <body class="light">
-<div class="app" id="app">
   <!-- ЭКРАН АВТОРИЗАЦИИ -->
   <div id="authScreen" class="auth">
-    <h2>⚡ LEDERG v2.0</h2>
+    <h2>⚡ LEDERG Fire</h2>
     <div class="tabs">
       <div id="tabLogin" class="tab active">Вход</div>
       <div id="tabSignup" class="tab">Регистрация</div>
     </div>
-    <input type="email" id="email" placeholder="Email">
-    <input type="password" id="password" placeholder="Пароль">
-    <input type="text" id="nickname" placeholder="Никнейм" style="display:none;">
+    <input type="email" id="emailInput" placeholder="Email">
+    <input type="password" id="passwordInput" placeholder="Пароль">
+    <input type="text" id="nicknameInput" placeholder="Никнейм" style="display:none;">
     <button id="authBtn">Войти</button>
     <div id="authError" class="error"></div>
   </div>
 
-  <!-- ОСНОВНОЙ ЭКРАН ЧАТОВ -->
-  <div id="chatScreen" class="chat" style="display:none;">
+  <!-- ЧАТЫ -->
+  <div id="chatScreen" class="chat-screen">
     <div class="sidebar" id="sidebar">
       <div class="profile">
-        <img id="userAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%233b82f6'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.35em' fill='white' font-size='40'%3E😎%3C/text%3E%3C/svg%3E" width="40" height="40">
+        <div class="avatar" id="userAvatar">?</div>
         <div>
           <div id="userNickDisplay"></div>
-          <div style="font-size:0.75rem; opacity:0.7;" id="onlineStatus"></div>
+          <small id="onlineStatus"></small>
         </div>
-        <button id="logoutBtn" style="margin-left:auto; background:none; border:none; color:var(--text); cursor:pointer;"><i class="fas fa-sign-out-alt"></i></button>
+        <button id="logoutBtn" style="margin-left:auto; background:none; border:none; color:var(--text);"><i class="fas fa-sign-out-alt"></i></button>
       </div>
       <div style="padding:8px;">
-        <input type="text" id="searchInput" placeholder="Поиск пользователей..." style="width:100%; padding:8px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+        <input type="text" id="searchUsers" placeholder="Поиск пользователей..." style="width:100%; padding:8px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:var(--bg); color:var(--text);">
       </div>
       <div class="chats" id="chatsList"></div>
-      <button id="newChannelBtn" style="margin:8px; padding:10px; background:var(--accent); color:white; border:none; border-radius:12px;">+ Создать канал</button>
+      <button id="createChannelBtn" style="margin:8px; padding:10px; background:var(--accent); color:white; border:none; border-radius:12px;">+ Канал</button>
     </div>
     <div class="main">
       <div class="header">
         <button id="menuBtn" style="background:none; border:none; color:var(--text); display:none;"><i class="fas fa-bars"></i></button>
-        <div id="chatTitle">Выберите чат</div>
+        <span id="chatTitle">LEDERG</span>
       </div>
       <div class="messages" id="messages"></div>
       <div class="input-area" id="inputArea" style="display:none;">
         <input type="file" id="fileInput" style="display:none;">
         <button id="attachBtn" style="background:none; border:none; color:var(--text);"><i class="fas fa-paperclip"></i></button>
-        <input type="text" id="messageInput" placeholder="Напишите сообщение...">
+        <input type="text" id="messageInput" placeholder="Сообщение...">
         <button id="sendBtn" style="background:var(--accent); border:none; color:white; border-radius:50%; width:40px; height:40px;"><i class="fas fa-paper-plane"></i></button>
       </div>
     </div>
   </div>
-</div>
 
 <script>
-  // КОНФИГУРАЦИЯ
-  const SUPABASE_URL = 'https://whfcdzkfadqmkokjhogk.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_gNERJsFyw4PUE2xNjHOR9A_0-CJMrVR';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // ========== ВАША КОНФИГУРАЦИЯ FIREBASE ==========
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMovcf0WC7bHYzeIKo7N5FYgvJOlSmiec",
+    authDomain: "lederg-messages.firebaseapp.com",
+    projectId: "lederg-messages",
+    storageBucket: "lederg-messages.firebasestorage.app",
+    messagingSenderId: "753662822873",
+    appId: "1:753662822873:web:0635ccd83a5f061546f1c8",
+    measurementId: "G-SG186R72QV"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const storage = firebase.storage();
 
-  // DOM
+  // ========== ГЛОБАЛЬНОЕ СОСТОЯНИЕ ==========
+  let currentUser = null;
+  let currentChat = null;       // { id, type, name, otherUserId? }
+  let unsubscribeMessages = null;
+  let mode = 'login';           // 'login' или 'signup'
+
+  // DOM-элементы
   const authScreen = document.getElementById('authScreen');
   const chatScreen = document.getElementById('chatScreen');
-  const authBtn = document.getElementById('authBtn');
   const tabLogin = document.getElementById('tabLogin');
   const tabSignup = document.getElementById('tabSignup');
-  const emailInp = document.getElementById('email');
-  const passInp = document.getElementById('password');
-  const nickInp = document.getElementById('nickname');
+  const emailInput = document.getElementById('emailInput');
+  const passwordInput = document.getElementById('passwordInput');
+  const nicknameInput = document.getElementById('nicknameInput');
+  const authBtn = document.getElementById('authBtn');
   const authError = document.getElementById('authError');
+  const userNickDisplay = document.getElementById('userNickDisplay');
+  const userAvatar = document.getElementById('userAvatar');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const searchUsers = document.getElementById('searchUsers');
+  const chatsList = document.getElementById('chatsList');
+  const chatTitle = document.getElementById('chatTitle');
+  const messagesDiv = document.getElementById('messages');
+  const messageInput = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const fileInput = document.getElementById('fileInput');
+  const attachBtn = document.getElementById('attachBtn');
+  const inputArea = document.getElementById('inputArea');
+  const createChannelBtn = document.getElementById('createChannelBtn');
 
-  let currentUser = null;
-  let currentChat = null;
-  let channelSub = null;
-  let onlineInterval = null;
-
-  // АВТОРИЗАЦИЯ
-  let mode = 'login';
-  tabLogin.onclick = () => { mode='login'; updateAuthUI(); };
-  tabSignup.onclick = () => { mode='signup'; updateAuthUI(); };
+  // ========== АВТОРИЗАЦИЯ ==========
   function updateAuthUI() {
-    tabLogin.classList.toggle('active', mode==='login');
-    tabSignup.classList.toggle('active', mode==='signup');
-    nickInp.style.display = mode==='signup' ? 'block' : 'none';
-    authBtn.textContent = mode==='login' ? 'Войти' : 'Зарегистрироваться';
+    tabLogin.classList.toggle('active', mode === 'login');
+    tabSignup.classList.toggle('active', mode === 'signup');
+    nicknameInput.style.display = mode === 'signup' ? 'block' : 'none';
+    authBtn.textContent = mode === 'login' ? 'Войти' : 'Зарегистрироваться';
     authError.textContent = '';
   }
 
+  tabLogin.onclick = () => { mode = 'login'; updateAuthUI(); };
+  tabSignup.onclick = () => { mode = 'signup'; updateAuthUI(); };
+
   authBtn.onclick = async () => {
-    const email = emailInp.value.trim();
-    const password = passInp.value.trim();
-    const nickname = nickInp.value.trim();
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+    const nickname = nicknameInput.value.trim();
     authError.textContent = '';
     if (!email || !password) return authError.textContent = 'Заполните email и пароль';
-    if (mode==='signup' && !nickname) return authError.textContent = 'Придумайте никнейм';
-    authBtn.disabled = true;
+    if (mode === 'signup' && !nickname) return authError.textContent = 'Придумайте никнейм';
+
     try {
-      if (mode==='login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+      if (mode === 'login') {
+        await auth.signInWithEmailAndPassword(email, password);
       } else {
-        const { error } = await supabase.auth.signUp({ email, password, options: { data: { nickname } } });
-        if (error) throw error;
-        authError.textContent = 'Регистрация успешна! Проверьте почту (если требуется)';
+        const { user } = await auth.createUserWithEmailAndPassword(email, password);
+        // Сохраняем профиль в Firestore
+        await db.collection('users').doc(user.uid).set({
+          nickname: nickname,
+          email: email,
+          online: true,
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        });
       }
-    } catch (e) {
-      authError.textContent = e.message;
-    } finally {
-      authBtn.disabled = false;
+    } catch (err) {
+      authError.textContent = err.message;
     }
   };
 
-  supabase.auth.onAuthStateChange(async (event, session) => {
-    if (session?.user) {
-      currentUser = session.user;
-      const { data: profile } = await supabase.from('users').select('nickname').eq('id', currentUser.id).single();
-      if (profile) {
-        document.getElementById('userNickDisplay').textContent = profile.nickname;
-      }
+  // Слушатель авторизации
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      currentUser = user;
+      // Получаем профиль
+      const userDoc = await db.collection('users').doc(user.uid).get();
+      const userData = userDoc.data();
+      userNickDisplay.textContent = userData?.nickname || user.email;
+      userAvatar.textContent = (userData?.nickname || user.email)[0].toUpperCase();
       authScreen.style.display = 'none';
       chatScreen.style.display = 'flex';
-      initChat();
+      startOnlinePing();
+      loadChats();
     } else {
+      currentUser = null;
       authScreen.style.display = 'block';
       chatScreen.style.display = 'none';
-      if (channelSub) supabase.removeChannel(channelSub);
-      if (onlineInterval) clearInterval(onlineInterval);
+      if (unsubscribeMessages) unsubscribeMessages();
+      clearInterval(window.onlineInterval);
     }
   });
 
-  // ЧАТ-ДВИЖОК
-  async function initChat() {
-    await loadChats();
-    startOnlinePing();
-    listenGlobal();
+  // Онлайн-статус
+  function startOnlinePing() {
+    const userRef = db.collection('users').doc(currentUser.uid);
+    userRef.update({ online: true, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+    window.onlineInterval = setInterval(() => {
+      userRef.update({ online: true, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+    }, 30000);
+    window.addEventListener('beforeunload', () => {
+      userRef.update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() });
+    });
   }
 
+  // ========== ЧАТЫ ==========
   async function loadChats() {
-    const { data: convs } = await supabase.from('conversations').select('*').or(`participant1.eq.${currentUser.id},participant2.eq.${currentUser.id}`);
-    const list = document.getElementById('chatsList');
-    list.innerHTML = '';
-    for (let c of (convs||[])) {
-      const otherId = c.participant1===currentUser.id ? c.participant2 : c.participant1;
-      const { data: other } = await supabase.from('users').select('nickname').eq('id', otherId).single();
-      if (!other) continue;
+    chatsList.innerHTML = '';
+    // Личные чаты
+    const convSnapshot = await db.collection('conversations')
+      .where('participants', 'array-contains', currentUser.uid)
+      .get();
+    for (const doc of convSnapshot.docs) {
+      const data = doc.data();
+      const otherUid = data.participants.find(uid => uid !== currentUser.uid);
+      if (!otherUid) continue;
+      const otherUserDoc = await db.collection('users').doc(otherUid).get();
+      const otherNick = otherUserDoc.data()?.nickname || 'Пользователь';
       const div = document.createElement('div');
       div.className = 'chat-item';
-      div.innerHTML = `<div class="avatar">${other.nickname[0]}</div><div><strong>${other.nickname}</strong><br><small>${c.last_message||''}</small></div>`;
-      div.onclick = () => openPrivateChat(c.id, other.nickname);
-      list.appendChild(div);
+      div.innerHTML = `<div class="avatar" style="width:36px;height:36px;font-size:14px;">${otherNick[0]}</div><div><strong>${otherNick}</strong><br><small>${data.lastMessage || ''}</small></div>`;
+      div.onclick = () => openPrivateChat(doc.id, otherNick);
+      chatsList.appendChild(div);
     }
     // Каналы
-    const { data: mems } = await supabase.from('channel_members').select('channel_id').eq('user_id', currentUser.id);
-    for (let m of (mems||[])) {
-      const { data: chan } = await supabase.from('channels').select('*').eq('id', m.channel_id).single();
-      if (!chan) continue;
+    const channelsSnapshot = await db.collection('channels').get();
+    channelsSnapshot.forEach(doc => {
+      const data = doc.data();
       const div = document.createElement('div');
       div.className = 'chat-item';
-      div.innerHTML = `<div class="avatar">#</div><div><strong>${chan.name}</strong><br><small>Канал</small></div>`;
-      div.onclick = () => openChannel(chan.id, chan.name);
-      list.appendChild(div);
-    }
+      div.innerHTML = `<div class="avatar" style="width:36px;height:36px;font-size:14px;">#</div><div><strong>${data.name}</strong><br><small>Канал</small></div>`;
+      div.onclick = () => openChannel(doc.id, data.name);
+      chatsList.appendChild(div);
+    });
   }
 
   function openPrivateChat(convId, name) {
@@ -218,107 +251,157 @@
     openChat({ id: chanId, type: 'channel', name });
   }
 
-  async function openChat(chat) {
-    if (channelSub) supabase.removeChannel(channelSub);
+  function openChat(chat) {
+    if (unsubscribeMessages) unsubscribeMessages();
     currentChat = chat;
-    document.getElementById('chatTitle').textContent = chat.name;
-    document.getElementById('inputArea').style.display = 'flex';
-    document.getElementById('messages').innerHTML = '';
-    await loadMessages();
-    const table = chat.type==='private' ? 'messages' : 'channel_messages';
-    const col = chat.type==='private' ? 'conversation_id' : 'channel_id';
-    channelSub = supabase.channel(`chat:${chat.id}`)
-      .on('postgres_changes', { event:'INSERT', schema:'public', table, filter:`${col}=eq.${chat.id}` }, payload => {
-        appendMessage(payload.new);
-      })
-      .subscribe();
+    chatTitle.textContent = chat.name;
+    inputArea.style.display = 'flex';
+    messagesDiv.innerHTML = '';
+    loadMessages(chat);
+    const collection = chat.type === 'private' ? 'messages' : 'channelMessages';
+    const filterField = chat.type === 'private' ? 'conversationId' : 'channelId';
+    unsubscribeMessages = db.collection(collection)
+      .where(filterField, '==', chat.id)
+      .orderBy('createdAt', 'asc')
+      .onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            appendMessage(change.doc.data());
+          }
+        });
+      });
   }
 
-  async function loadMessages() {
-    const table = currentChat.type==='private' ? 'messages' : 'channel_messages';
-    const col = currentChat.type==='private' ? 'conversation_id' : 'channel_id';
-    const { data } = await supabase.from(table).select('*').eq(col, currentChat.id).order('created_at', { ascending:true });
-    const msgs = document.getElementById('messages');
-    msgs.innerHTML = '';
-    data?.forEach(appendMessage);
-    msgs.scrollTop = msgs.scrollHeight;
+  async function loadMessages(chat) {
+    const collection = chat.type === 'private' ? 'messages' : 'channelMessages';
+    const filterField = chat.type === 'private' ? 'conversationId' : 'channelId';
+    const snapshot = await db.collection(collection)
+      .where(filterField, '==', chat.id)
+      .orderBy('createdAt', 'asc')
+      .get();
+    messagesDiv.innerHTML = '';
+    snapshot.forEach(doc => appendMessage(doc.data()));
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
 
   function appendMessage(msg) {
     const div = document.createElement('div');
-    const isMe = msg.from_user_id === currentUser.id;
+    const isMe = msg.fromUid === currentUser.uid;
     div.className = `msg ${isMe ? 'me' : 'other'}`;
-    div.innerHTML = `${msg.text||''}${msg.media_url ? `<br><img src="${msg.media_url}" style="max-width:200px; border-radius:8px;">` : ''}<div class="time">${new Date(msg.created_at).toLocaleTimeString()}</div>`;
-    document.getElementById('messages').appendChild(div);
-    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    let content = msg.text || '';
+    if (msg.mediaUrl) {
+      content += `<br><img src="${msg.mediaUrl}" style="max-width:200px; border-radius:8px;">`;
+    }
+    div.innerHTML = `${content}<div class="time">${msg.createdAt ? new Date(msg.createdAt.toDate()).toLocaleTimeString() : ''}</div>`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
 
-  document.getElementById('sendBtn').onclick = async () => {
-    const text = document.getElementById('messageInput').value.trim();
+  // ========== ОТПРАВКА СООБЩЕНИЙ ==========
+  sendBtn.onclick = async () => {
+    const text = messageInput.value.trim();
     if (!text) return;
-    const table = currentChat.type==='private' ? 'messages' : 'channel_messages';
-    const col = currentChat.type==='private' ? 'conversation_id' : 'channel_id';
-    await supabase.from(table).insert([{ [col]: currentChat.id, from_user_id: currentUser.id, text }]);
-    document.getElementById('messageInput').value = '';
+    if (!currentChat) return;
+    const collection = currentChat.type === 'private' ? 'messages' : 'channelMessages';
+    const filterField = currentChat.type === 'private' ? 'conversationId' : 'channelId';
+    await db.collection(collection).add({
+      [filterField]: currentChat.id,
+      fromUid: currentUser.uid,
+      text: text,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    messageInput.value = '';
+    if (currentChat.type === 'private') {
+      await db.collection('conversations').doc(currentChat.id).update({
+        lastMessage: text,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
   };
 
-  // Поиск и создание диалога
-  document.getElementById('searchInput').addEventListener('keypress', async (e) => {
+  messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendBtn.click();
+  });
+
+  // ========== ПОИСК И СОЗДАНИЕ ЛИЧНОГО ЧАТА ==========
+  searchUsers.addEventListener('keypress', async (e) => {
     if (e.key !== 'Enter') return;
-    const q = e.target.value.trim();
+    const q = searchUsers.value.trim().toLowerCase();
     if (!q) return;
-    const { data: users } = await supabase.from('users').select('*').ilike('nickname', `%${q}%`).neq('id', currentUser.id).limit(5);
-    if (!users.length) return;
-    const user = users[0];
-    const [p1,p2] = [currentUser.id, user.id].sort();
-    let { data: conv } = await supabase.from('conversations').select('*').eq('participant1', p1).eq('participant2', p2).single();
-    if (!conv) {
-      const { data: newConv } = await supabase.from('conversations').insert([{ participant1:p1, participant2:p2 }]).select().single();
-      conv = newConv;
+    const usersSnapshot = await db.collection('users')
+      .orderBy('nickname')
+      .startAt(q)
+      .endAt(q + '\uf8ff')
+      .limit(5)
+      .get();
+    if (usersSnapshot.empty) return;
+    const otherUserDoc = usersSnapshot.docs[0];
+    const otherUid = otherUserDoc.id;
+    const otherNick = otherUserDoc.data().nickname;
+    // Проверяем, есть ли диалог
+    const existingConv = await db.collection('conversations')
+      .where('participants', 'array-contains', currentUser.uid)
+      .get();
+    let convId = null;
+    existingConv.forEach(doc => {
+      if (doc.data().participants.includes(otherUid)) {
+        convId = doc.id;
+      }
+    });
+    if (!convId) {
+      const newConvRef = await db.collection('conversations').add({
+        participants: [currentUser.uid, otherUid],
+        lastMessage: '',
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      convId = newConvRef.id;
     }
+    searchUsers.value = '';
     await loadChats();
-    openPrivateChat(conv.id, user.nickname);
-    e.target.value = '';
+    openPrivateChat(convId, otherNick);
   });
 
-  // Онлайн статус
-  async function updateOnline() {
-    if (!currentUser) return;
-    await supabase.from('users').update({ online: true, last_seen: new Date() }).eq('id', currentUser.id);
-  }
-  function startOnlinePing() {
-    updateOnline();
-    if (onlineInterval) clearInterval(onlineInterval);
-    onlineInterval = setInterval(updateOnline, 20000);
-  }
-
-  window.addEventListener('beforeunload', () => {
-    if (currentUser) supabase.from('users').update({ online: false, last_seen: new Date() }).eq('id', currentUser.id);
-  });
-
-  // Глобальные уведомления
-  function listenGlobal() {
-    supabase.channel('global')
-      .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, () => loadChats())
-      .on('postgres_changes', { event:'INSERT', schema:'public', table:'channel_messages' }, () => loadChats())
-      .subscribe();
-  }
-
-  document.getElementById('logoutBtn').onclick = () => supabase.auth.signOut();
-  document.getElementById('newChannelBtn').onclick = async () => {
+  // ========== КАНАЛЫ ==========
+  createChannelBtn.onclick = async () => {
     const name = prompt('Название канала:');
     if (!name) return;
-    const { data: chan } = await supabase.from('channels').insert([{ name, created_by: currentUser.id }]).select().single();
-    await supabase.from('channel_members').insert([{ channel_id: chan.id, user_id: currentUser.id }]);
+    await db.collection('channels').add({
+      name: name,
+      createdBy: currentUser.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     await loadChats();
-    openChannel(chan.id, chan.name);
   };
-  document.getElementById('menuBtn').onclick = () => document.getElementById('sidebar').classList.toggle('open');
-  // Адаптив
+
+  // ========== КАРТИНКИ ==========
+  attachBtn.onclick = () => fileInput.click();
+  fileInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentChat) return;
+    const storageRef = storage.ref(`media/${currentUser.uid}/${Date.now()}_${file.name}`);
+    const snapshot = await storageRef.put(file);
+    const url = await snapshot.ref.getDownloadURL();
+    const collection = currentChat.type === 'private' ? 'messages' : 'channelMessages';
+    const filterField = currentChat.type === 'private' ? 'conversationId' : 'channelId';
+    await db.collection(collection).add({
+      [filterField]: currentChat.id,
+      fromUid: currentUser.uid,
+      mediaUrl: url,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    fileInput.value = '';
+  };
+
+  // ========== МОБИЛЬНОЕ МЕНЮ ==========
+  document.getElementById('menuBtn').onclick = () => {
+    document.getElementById('sidebar').classList.toggle('open');
+  };
   if (window.innerWidth <= 640) document.getElementById('menuBtn').style.display = 'block';
   window.addEventListener('resize', () => {
     document.getElementById('menuBtn').style.display = window.innerWidth <= 640 ? 'block' : 'none';
   });
+
+  logoutBtn.onclick = () => auth.signOut();
 </script>
 </body>
 </html>
