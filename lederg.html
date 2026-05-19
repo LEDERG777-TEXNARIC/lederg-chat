@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LEDERG Messenger • облачный чат</title>
+    <!-- Firebase SDK (Compat-версия для простоты) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system;
+            background: linear-gradient(145deg, #e0e5ec, #f0f4fa);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .messenger {
+            max-width: 1100px;
+            width: 100%;
+            height: 85vh;
+            background: rgba(255,255,255,0.94);
+            backdrop-filter: blur(2px);
+            border-radius: 2rem;
+            box-shadow: 0 25px 45px -12px rgba(0,0,0,0.35);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .header {
+            background: #1e2a3e;
+            color: white;
+            padding: 1rem 1.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff, #b9f5d0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .badge {
+            background: #2c3e4e;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            color: #b9f5d0;
+        }
+        .sync-status {
+            font-size: 0.75rem;
+            background: #2c3e4e80;
+            padding: 5px 12px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sync-dot {
+            width: 10px; height: 10px;
+            background: #3baf6e;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.4; transform: scale(0.8);} 100% { opacity: 1; transform: scale(1.2);} }
+        .profile-bar {
+            background: #f8fafd;
+            padding: 0.8rem 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #dce5ef;
+        }
+        .nick-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 5px 12px;
+            border-radius: 48px;
+        }
+        #nickInput {
+            border: none;
+            background: #f1f5f9;
+            padding: 8px 12px;
+            border-radius: 32px;
+            width: 150px;
+            outline: none;
+        }
+        .setNickBtn, .clear-history {
+            background: #3baf6e;
+            border: none;
+            color: white;
+            padding: 6px 18px;
+            border-radius: 32px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .clear-history {
+            background: #eef2f7;
+            color: #a03d3d;
+            margin-left: auto;
+        }
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+            background: #ffffffd9;
+        }
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 75%;
+            animation: fadeSlideUp 0.2s ease;
+        }
+        @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+        .message-meta {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 4px;
+            padding-left: 6px;
+        }
+        .message-author { font-weight: 700; font-size: 0.85rem; color: #1e4663; }
+        .message-time { font-size: 0.65rem; color: #7f8c8d; }
+        .message-bubble {
+            background: #f1f5f9;
+            padding: 10px 16px;
+            border-radius: 24px;
+            border-top-left-radius: 6px;
+            word-wrap: break-word;
+        }
+        .message-self { align-self: flex-end; }
+        .message-self .message-bubble { background: #ddf4e4; border-bottom-right-radius: 6px; border-top-left-radius: 24px; }
+        .message-self .message-meta { justify-content: flex-end; }
+        .input-panel {
+            background: #f8fafd;
+            padding: 1rem 1.8rem;
+            display: flex;
+            gap: 12px;
+            border-top: 1px solid #dce5ef;
+        }
+        #messageInput {
+            flex: 1;
+            padding: 12px 18px;
+            border-radius: 60px;
+            border: none;
+            outline: none;
+            background: white;
+        }
+        .sendBtn {
+            background: #1e2a3e;
+            border: none;
+            color: white;
+            padding: 0 28px;
+            border-radius: 48px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .info-tip {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #6c86a3;
+            background: #eef3fc;
+            padding: 8px;
+        }
+        .empty-chat { text-align: center; color: #90a4bc; margin-top: 40px; }
+        @media (max-width: 600px) {
+            .message { max-width: 90%; }
+            .profile-bar, .input-panel { padding: 0.7rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="messenger">
+    <div class="header">
+        <div class="logo-area"><span class="logo">🔵 LEDERG</span><span class="badge">CLOUD • REAL TIME</span></div>
+        <div class="sync-status"><span class="sync-dot"></span><span>онлайн синхронизация</span></div>
+    </div>
+    <div class="profile-bar">
+        <div class="nick-section"><span>👤</span><input type="text" id="nickInput" placeholder="Ваше имя" maxlength="24"><button class="setNickBtn" id="setNickBtn">✅</button></div>
+        <button class="clear-history" id="clearHistoryBtn">🧹 Очистить чат</button>
+    </div>
+    <div class="messages-area" id="messagesArea"><div class="empty-chat">✨ LEDERG готов к общению! Напишите сообщение.</div></div>
+    <div class="input-panel">
+        <input type="text" id="messageInput" placeholder="Введите сообщение..." autocomplete="off">
+        <button class="sendBtn" id="sendBtn">📨 Отправить</button>
+    </div>
+    <div class="info-tip">💡 Чат работает в реальном времени. Отправьте ссылку друзьям — и общайтесь где угодно!</div>
+</div>
+
+<script>
+    // ====================== ВАШ КОНФИГ FIREBASE (уже вставлен) ======================
+    const firebaseConfig = {
+        apiKey: "AIzaSyBMovcf0WC7bHYzeIKo7N5FYgvJOlSmiec",
+        authDomain: "lederg-messages.firebaseapp.com",
+        databaseURL: "https://lederg-messages-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "lederg-messages",
+        storageBucket: "lederg-messages.firebasestorage.app",
+        messagingSenderId: "753662822873",
+        appId: "1:753662822873:web:0635ccd83a5f061546f1c8",
+        measurementId: "G-SG186R72QV"
+    };
+    // ======================================================================
+
+    // Инициализация Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const messagesRef = database.ref('lederg_messages');
+
+    let currentNick = 'Аноним';
+    let messagesList = [];
+
+    const messagesContainer = document.getElementById('messagesArea');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const nickInput = document.getElementById('nickInput');
+    const setNickBtn = document.getElementById('setNickBtn');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+    // Загружаем ник из localStorage
+    const savedNick = localStorage.getItem('lederg_nickname');
+    if (savedNick && savedNick.trim() !== '') {
+        currentNick = savedNick.trim();
+        nickInput.value = currentNick;
+    } else {
+        nickInput.value = '';
+    }
+
+    function saveNickToLocal(nick) {
+        localStorage.setItem('lederg_nickname', nick);
+    }
+
+    function setNickname(newNick) {
+        let trimmed = newNick.trim();
+        if (trimmed === '') trimmed = 'Аноним';
+        if (trimmed.length > 24) trimmed = trimmed.slice(0,24);
+        currentNick = trimmed;
+        nickInput.value = currentNick;
+        saveNickToLocal(currentNick);
+        renderMessages(messagesList);
+    }
+
+    function formatTime(ms) {
+        const d = new Date(ms);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second:'2-digit' });
+    }
+
+    function renderMessages(messagesArray) {
+        if (!messagesContainer) return;
+        messagesContainer.innerHTML = '';
+        if (!messagesArray || messagesArray.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'empty-chat';
+            emptyDiv.innerHTML = '💬 Нет сообщений. Напишите что-нибудь первым!';
+            messagesContainer.appendChild(emptyDiv);
+            return;
+        }
+
+        for (let msg of messagesArray) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message';
+            if (msg.author === currentNick) {
+                msgDiv.classList.add('message-self');
+            }
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'message-meta';
+            const authorSpan = document.createElement('span');
+            authorSpan.className = 'message-author';
+            authorSpan.textContent = msg.author;
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'message-time';
+            timeSpan.textContent = formatTime(msg.timestamp);
+            metaDiv.appendChild(authorSpan);
+            metaDiv.appendChild(timeSpan);
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            bubbleDiv.textContent = msg.text;
+            msgDiv.appendChild(metaDiv);
+            msgDiv.appendChild(bubbleDiv);
+            messagesContainer.appendChild(msgDiv);
+        }
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function sendMessage(text) {
+        if (!text.trim()) return;
+        const cleanText = text.trim();
+        const newMessage = {
+            author: currentNick,
+            text: cleanText,
+            timestamp: Date.now(),
+        };
+        messagesRef.push(newMessage).then(() => {
+            messageInput.value = '';
+            messageInput.focus();
+        }).catch(err => {
+            console.error("Ошибка отправки:", err);
+            alert("Не удалось отправить сообщение. Проверьте интернет и настройки Firebase.");
+        });
+    }
+
+    function clearChat() {
+        if (confirm("⚠️ Удалить ВСЕ сообщения для всех участников? Отменить нельзя.")) {
+            messagesRef.remove().catch(err => alert("Ошибка очистки: " + err.message));
+        }
+    }
+
+    // Слушаем новые сообщения в реальном времени
+    messagesRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        const newMessages = [];
+        if (data) {
+            Object.keys(data).forEach(key => {
+                newMessages.push({
+                    id: key,
+                    author: data[key].author,
+                    text: data[key].text,
+                    timestamp: data[key].timestamp
+                });
+            });
+            newMessages.sort((a,b) => a.timestamp - b.timestamp);
+        }
+        messagesList = newMessages;
+        renderMessages(messagesList);
+    });
+
+    sendBtn.addEventListener('click', () => sendMessage(messageInput.value));
+    messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendMessage(messageInput.value);
+        }
+    });
+    setNickBtn.addEventListener('click', () => setNickname(nickInput.value));
+    nickInput.addEventListener('blur', () => {
+        if (nickInput.value.trim() !== currentNick) setNickname(nickInput.value);
+    });
+    clearHistoryBtn.addEventListener('click', clearChat);
+</script>
+</body>
+</html>
