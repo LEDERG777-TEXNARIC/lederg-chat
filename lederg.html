@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LEDERG — Безупречный мессенджер</title>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <title>LEDERG Supabase — мессенджер будущего</title>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -259,29 +258,20 @@
 <div id="channelModal" class="modal"><div class="modal-content"><h3>Новый канал</h3><input type="text" id="channelName" placeholder="Название"><textarea id="channelDesc" placeholder="Описание" rows="2"></textarea><button id="confirmCreateChannel">Создать</button><button id="closeModal" class="secondary">Отмена</button></div></div>
 
 <script>
-    // ====================== ВАШ КОНФИГ FIREBASE (ПРОВЕРЕН) ======================
-    const firebaseConfig = {
-        apiKey: "AIzaSyBMovcf0WC7bHYzeIKo7N5FYgvJOlSmiec",
-        authDomain: "lederg-messages.firebaseapp.com",
-        databaseURL: "https://lederg-messages-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "lederg-messages",
-        storageBucket: "lederg-messages.firebasestorage.app",
-        messagingSenderId: "753662822873",
-        appId: "1:753662822873:web:0635ccd83a5f061546f1c8"
-    };
-    // ========================================================================
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.database();
+    // ====================== ВАШИ КЛЮЧИ SUPABASE ======================
+    const SUPABASE_URL = 'https://whfcdzkfadqmkokjhogk.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_gNERJsFyw4PUE2xNjHOR9A_0-CJMrVR';
+    // =================================================================
 
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
     let currentUser = null;
-    let currentChat = null;            // { id, type, name, otherId? }
-    let currentMessagesListener = null; // ссылка на активный слушатель
-    let allUsers = {};
-    let allChannels = {};
+    let currentChat = null;          // { id, type, name, other_user_id? }
+    let currentChannel = null;       // канал supabase realtime
+    let allUsers = [];
+    let allChannels = [];
     let userChats = [];
     let activeTab = 'chats';
-    let typingTimeout = null;
 
     // DOM
     const authScreen = document.getElementById('authScreen');
@@ -325,71 +315,78 @@
     function formatTime(ts) { return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
     // Загрузка всех пользователей и каналов
-    async function loadAllUsers() { const snap = await db.ref('users').once('value'); allUsers = snap.val() || {}; }
-    async function loadAllChannels() { const snap = await db.ref('channels').once('value'); allChannels = snap.val() || {}; }
+    async function loadAllUsers() {
+        const { data } = await supabase.from('users').select('id, nickname');
+        allUsers = data || [];
+    }
+    async function loadAllChannels() {
+        const { data } = await supabase.from('channels').select('*');
+        allChannels = data || [];
+    }
 
     async function loadUserChats() {
-        const convSnap = await db.ref('conversations').once('value');
-        const convs = convSnap.val() || {};
-        const myId = currentUser.uid;
+        // Личные диалоги (conversations)
+        const { data: convs } = await supabase
+            .from('conversations')
+            .select('*')
+            .or(`participant1.eq.${currentUser.id},participant2.eq.${currentUser.id}`);
         let privateChats = [];
-        for(let [convId, conv] of Object.entries(convs)) {
-            if(conv.participants && conv.participants.includes(myId)) {
-                const otherId = conv.participants.find(id => id !== myId);
-                const otherUser = allUsers[otherId];
-                if(otherUser) {
-                    privateChats.push({
-                        id: convId,
-                        type: 'private',
-                        name: otherUser.nickname,
-                        otherId: otherId,
-                        lastMessage: conv.lastMessage || '',
-                        lastUpdated: conv.lastUpdated || 0,
-                        avatar: otherUser.nickname.charAt(0).toUpperCase()
-                    });
-                }
+        for (let conv of (convs || [])) {
+            const otherId = conv.participant1 === currentUser.id ? conv.participant2 : conv.participant1;
+            const otherUser = allUsers.find(u => u.id === otherId);
+            if (otherUser) {
+                privateChats.push({
+                    id: conv.id,
+                    type: 'private',
+                    name: otherUser.nickname,
+                    otherId: otherId,
+                    lastMessage: conv.last_message,
+                    lastUpdated: conv.last_updated,
+                    avatar: otherUser.nickname.charAt(0).toUpperCase()
+                });
             }
         }
         // Каналы, на которые подписан
-        const memberSnap = await db.ref('channel_members').once('value');
-        const members = memberSnap.val() || {};
+        const { data: members } = await supabase
+            .from('channel_members')
+            .select('channel_id')
+            .eq('user_id', currentUser.id);
         let channelChats = [];
-        for(let [channelId, subs] of Object.entries(members)) {
-            if(subs && subs[myId]) {
-                const chan = allChannels[channelId];
-                if(chan) {
-                    let lastMsg = '', lastTime = 0;
-                    const msgSnap = await db.ref(`channel_messages/${channelId}`).orderByKey().limitToLast(1).once('value');
-                    if(msgSnap.exists()) {
-                        const vals = Object.values(msgSnap.val());
-                        if(vals.length) { lastMsg = vals[0].text; lastTime = vals[0].timestamp || 0; }
-                    }
-                    channelChats.push({
-                        id: channelId,
-                        type: 'channel',
-                        name: chan.name,
-                        lastMessage: lastMsg,
-                        lastUpdated: lastTime,
-                        avatar: chan.name.charAt(0).toUpperCase()
-                    });
-                }
+        for (let m of (members || [])) {
+            const chan = allChannels.find(c => c.id === m.channel_id);
+            if (chan) {
+                // Получаем последнее сообщение канала
+                const { data: lastMsg } = await supabase
+                    .from('channel_messages')
+                    .select('text, created_at')
+                    .eq('channel_id', chan.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                channelChats.push({
+                    id: chan.id,
+                    type: 'channel',
+                    name: chan.name,
+                    lastMessage: lastMsg && lastMsg[0] ? lastMsg[0].text : '',
+                    lastUpdated: lastMsg && lastMsg[0] ? lastMsg[0].created_at : chan.created_at,
+                    avatar: chan.name.charAt(0).toUpperCase()
+                });
             }
         }
-        userChats = [...privateChats, ...channelChats].sort((a,b) => (b.lastUpdated||0) - (a.lastUpdated||0));
+        userChats = [...privateChats, ...channelChats].sort((a,b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
         renderChatsList();
     }
 
     function renderChatsList() {
         let filtered = userChats.filter(c => activeTab === 'channels' ? c.type === 'channel' : c.type === 'private');
         chatsListDiv.innerHTML = '';
-        if(filtered.length === 0) {
+        if (filtered.length === 0) {
             chatsListDiv.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">Нет чатов</div>';
             return;
         }
-        for(let chat of filtered) {
+        for (let chat of filtered) {
             const div = document.createElement('div');
             div.className = 'chat-item';
-            if(currentChat && currentChat.id === chat.id && currentChat.type === chat.type) div.classList.add('active');
+            if (currentChat && currentChat.id === chat.id && currentChat.type === chat.type) div.classList.add('active');
             const avatarDiv = document.createElement('div');
             avatarDiv.className = 'avatar';
             avatarDiv.innerText = chat.avatar;
@@ -403,66 +400,70 @@
         }
     }
 
-    // ========== ГЛАВНОЕ: ИСПРАВЛЕННОЕ ПЕРЕКЛЮЧЕНИЕ ЧАТОВ ==========
+    // === ГЛАВНОЕ: ПЕРЕКЛЮЧЕНИЕ МЕЖДУ ЧАТАМИ (БЕЗ БАГОВ) ===
     async function openChat(chat) {
-        // 1. Отключаем старый слушатель, если он есть
-        if (currentMessagesListener) {
-            currentMessagesListener.off();
-            currentMessagesListener = null;
+        // Отписываемся от предыдущего канала realtime, если он есть
+        if (currentChannel) {
+            await currentChannel.unsubscribe();
+            currentChannel = null;
         }
-        // 2. Устанавливаем новый текущий чат
         currentChat = chat;
         currentChatTitle.innerText = chat.name;
         inputArea.style.display = 'flex';
         messagesArea.innerHTML = '<div style="text-align:center;"><i class="fas fa-spinner fa-pulse"></i> Загрузка...</div>';
         
-        // 3. Определяем путь к сообщениям
-        let path = (chat.type === 'private') ? `messages/${chat.id}` : `channel_messages/${chat.id}`;
-        const msgRef = db.ref(path);
+        // Загружаем историю сообщений
+        let tableName = (chat.type === 'private') ? 'messages' : 'channel_messages';
+        let columnName = (chat.type === 'private') ? 'conversation_id' : 'channel_id';
+        const { data: msgs, error } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq(columnName, chat.id)
+            .order('created_at', { ascending: true });
+        if (!error) renderMessages(msgs || []);
         
-        // 4. Подписываемся на изменения (однократно)
-        currentMessagesListener = msgRef.on('value', (snapshot) => {
-            const data = snapshot.val() || {};
-            const msgs = Object.entries(data).map(([id, m]) => ({ id, ...m })).sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
-            renderMessages(msgs);
-        });
+        // Подписываемся на новые сообщения в реальном времени
+        currentChannel = supabase.channel(`realtime:${chat.id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: tableName,
+                filter: `${columnName}=eq.${chat.id}`
+            }, payload => {
+                // Добавляем новое сообщение в конец списка
+                const newMsg = payload.new;
+                const currentMsgs = [...(messagesArea._msgsCache || []), newMsg];
+                messagesArea._msgsCache = currentMsgs;
+                renderMessages(currentMsgs);
+            })
+            .subscribe();
         
-        // 5. Закрываем мобильное меню при необходимости
-        if (window.innerWidth <= 680) {
-            document.getElementById('sidebar').classList.remove('open');
-        }
+        // Закрываем мобильное меню
+        if (window.innerWidth <= 680) document.getElementById('sidebar').classList.remove('open');
         renderChatsList();
-        
-        // 6. Показать/скрыть кнопку информации о канале
-        if (chat.type === 'channel') {
-            channelInfoBtn.style.display = 'inline-block';
-        } else {
-            channelInfoBtn.style.display = 'none';
-        }
+        if (chat.type === 'channel') channelInfoBtn.style.display = 'inline-block';
+        else channelInfoBtn.style.display = 'none';
     }
 
     function renderMessages(msgs) {
         if (!messagesArea) return;
+        messagesArea._msgsCache = msgs; // кеш для последующих обновлений
         messagesArea.innerHTML = '';
-        if (msgs.length === 0) {
-            messagesArea.innerHTML = '<div style="text-align:center;color:var(--text-secondary);">Сообщений пока нет</div>';
+        if (!msgs.length) {
+            messagesArea.innerHTML = '<div style="text-align:center;color:var(--text-secondary);">Сообщений нет</div>';
             return;
         }
         for (let msg of msgs) {
-            const isSelf = msg.fromUid === currentUser.uid;
+            const isSelf = msg.from_user_id === currentUser.id;
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${isSelf ? 'message-self' : ''}`;
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
             bubble.innerText = msg.text;
-            if (msg.mediaType === 'image') {
-                bubble.innerHTML = `<img src="${msg.text}" style="max-width:200px; border-radius:12px;">`;
-            }
             const meta = document.createElement('div');
             meta.className = 'message-meta';
-            const authorName = isSelf ? 'Вы' : (msg.fromNick || (allUsers[msg.fromUid]?.nickname) || 'Пользователь');
-            meta.innerText = `${authorName} · ${formatTime(msg.timestamp)}`;
-            if (msg.edited) meta.innerText += ' (ред.)';
+            const author = isSelf ? 'Вы' : (allUsers.find(u => u.id === msg.from_user_id)?.nickname || 'Пользователь');
+            meta.innerText = `${author} · ${formatTime(msg.created_at)}`;
             msgDiv.appendChild(bubble);
             msgDiv.appendChild(meta);
             messagesArea.appendChild(msgDiv);
@@ -472,19 +473,22 @@
 
     async function sendMessage(text) {
         if (!text.trim() || !currentChat) return;
-        const msgData = {
-            fromUid: currentUser.uid,
-            fromNick: currentUser.displayName,
+        const tableName = (currentChat.type === 'private') ? 'messages' : 'channel_messages';
+        const columnName = (currentChat.type === 'private') ? 'conversation_id' : 'channel_id';
+        const newMessage = {
+            [columnName]: currentChat.id,
+            from_user_id: currentUser.id,
             text: text.trim(),
-            timestamp: Date.now()
+            created_at: new Date().toISOString()
         };
-        let path = (currentChat.type === 'private') ? `messages/${currentChat.id}` : `channel_messages/${currentChat.id}`;
-        await db.ref(path).push(msgData);
-        if (currentChat.type === 'private') {
-            await db.ref(`conversations/${currentChat.id}`).update({ lastMessage: text, lastUpdated: Date.now() });
+        const { error } = await supabase.from(tableName).insert([newMessage]);
+        if (error) {
+            console.error(error);
+            return;
         }
         messageInput.value = '';
-        await loadUserChats(); // обновить список чатов
+        // Обновим список чатов (чтобы обновился last_message)
+        await loadUserChats();
     }
 
     // Поиск людей и каналов
@@ -498,28 +502,29 @@
                 return;
             }
             debounce = setTimeout(async () => {
-                const usersList = Object.entries(allUsers).filter(([uid, u]) => uid !== currentUser.uid && u.nickname.toLowerCase().includes(query));
-                const memberSnap = await db.ref('channel_members').once('value');
-                const members = memberSnap.val() || {};
-                const subscribedIds = Object.keys(members).filter(cid => members[cid] && members[cid][currentUser.uid]);
-                const channelsList = Object.entries(allChannels).filter(([cid, ch]) => !subscribedIds.includes(cid) && ch.name.toLowerCase().includes(query));
+                // Поиск пользователей (исключая себя)
+                const usersList = allUsers.filter(u => u.id !== currentUser.id && u.nickname.toLowerCase().includes(query));
+                // Поиск каналов, на которые не подписан
+                const { data: mySubs } = await supabase.from('channel_members').select('channel_id').eq('user_id', currentUser.id);
+                const subscribedIds = (mySubs || []).map(s => s.channel_id);
+                const channelsList = allChannels.filter(ch => !subscribedIds.includes(ch.id) && ch.name.toLowerCase().includes(query));
                 if (usersList.length === 0 && channelsList.length === 0) {
                     searchResultsPanel.style.display = 'none';
                     return;
                 }
                 searchResultsPanel.innerHTML = '';
-                for (let [uid, user] of usersList.slice(0,5)) {
+                for (let user of usersList.slice(0,5)) {
                     const div = document.createElement('div');
                     div.className = 'search-result';
                     div.innerHTML = `<i class="fas fa-user"></i> ${escapeHtml(user.nickname)}`;
-                    div.onclick = () => startPrivateChat(uid, user.nickname);
+                    div.onclick = () => startPrivateChat(user.id, user.nickname);
                     searchResultsPanel.appendChild(div);
                 }
-                for (let [cid, channel] of channelsList.slice(0,5)) {
+                for (let channel of channelsList.slice(0,5)) {
                     const div = document.createElement('div');
                     div.className = 'search-result';
                     div.innerHTML = `<i class="fas fa-bullhorn"></i> ${escapeHtml(channel.name)} (канал)`;
-                    div.onclick = () => joinChannel(cid);
+                    div.onclick = () => joinChannel(channel.id);
                     searchResultsPanel.appendChild(div);
                 }
                 searchResultsPanel.style.display = 'block';
@@ -532,26 +537,39 @@
         });
     }
 
-    async function startPrivateChat(otherUid, otherNick) {
-        const convId = [currentUser.uid, otherUid].sort().join('_');
-        const convRef = db.ref(`conversations/${convId}`);
-        const snap = await convRef.once('value');
-        if (!snap.exists()) {
-            await convRef.set({
-                participants: [currentUser.uid, otherUid],
-                lastUpdated: Date.now(),
-                lastMessage: ''
-            });
+    async function startPrivateChat(otherId, otherNick) {
+        // Находим существующий диалог или создаём новый
+        let { data: existing } = await supabase
+            .from('conversations')
+            .select('*')
+            .or(`and(participant1.eq.${currentUser.id},participant2.eq.${otherId}),and(participant1.eq.${otherId},participant2.eq.${currentUser.id})`)
+            .maybeSingle();
+        if (!existing) {
+            const { data: newConv } = await supabase
+                .from('conversations')
+                .insert([{ participant1: currentUser.id, participant2: otherId, last_updated: new Date().toISOString() }])
+                .select()
+                .single();
+            existing = newConv;
         }
         await loadUserChats();
-        const newChat = userChats.find(c => c.type === 'private' && c.otherId === otherUid);
+        const newChat = userChats.find(c => c.type === 'private' && c.otherId === otherId);
         if (newChat) openChat(newChat);
         globalSearch.value = '';
         searchResultsPanel.style.display = 'none';
     }
 
     async function joinChannel(channelId) {
-        await db.ref(`channel_members/${channelId}/${currentUser.uid}`).set(true);
+        // Проверяем, не подписан ли уже
+        const { data: existing } = await supabase
+            .from('channel_members')
+            .select('*')
+            .eq('channel_id', channelId)
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        if (!existing) {
+            await supabase.from('channel_members').insert([{ channel_id: channelId, user_id: currentUser.id }]);
+        }
         await loadAllChannels();
         await loadUserChats();
         const newChat = userChats.find(c => c.type === 'channel' && c.id === channelId);
@@ -563,37 +581,35 @@
     // Создание канала
     confirmCreateChannel.onclick = async () => {
         const name = channelNameInput.value.trim();
-        if (!name) return alert("Введите название канала");
-        const exists = Object.values(allChannels).some(ch => ch.name.toLowerCase() === name.toLowerCase());
+        if (!name) return alert("Введите название");
+        const exists = allChannels.some(ch => ch.name.toLowerCase() === name.toLowerCase());
         if (exists) return alert("Канал с таким именем уже существует");
-        const newChanRef = db.ref('channels').push();
-        await newChanRef.set({
-            name: name,
-            description: channelDescInput.value.trim(),
-            createdBy: currentUser.uid,
-            createdAt: Date.now()
-        });
-        await db.ref(`channel_members/${newChanRef.key}/${currentUser.uid}`).set(true);
+        const { data: newChannel } = await supabase
+            .from('channels')
+            .insert([{ name, description: channelDescInput.value.trim(), created_by: currentUser.id }])
+            .select()
+            .single();
+        if (newChannel) {
+            await supabase.from('channel_members').insert([{ channel_id: newChannel.id, user_id: currentUser.id }]);
+            await loadAllChannels();
+            await loadUserChats();
+            const newChat = userChats.find(c => c.type === 'channel' && c.id === newChannel.id);
+            if (newChat) openChat(newChat);
+        }
         channelModal.classList.remove('active');
         channelNameInput.value = '';
         channelDescInput.value = '';
-        await loadAllChannels();
-        await loadUserChats();
-        const newChat = userChats.find(c => c.type === 'channel' && c.id === newChanRef.key);
-        if (newChat) openChat(newChat);
     };
 
     // Отправка сообщений
     sendBtn.onclick = () => sendMessage(messageInput.value);
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage(messageInput.value);
-    });
+    messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(messageInput.value); });
 
     // Информация о канале
     channelInfoBtn.onclick = () => {
         if (currentChat && currentChat.type === 'channel') {
-            const channel = allChannels[currentChat.id];
-            alert(`Канал: ${channel.name}\nОписание: ${channel.description || 'Нет'}\nСоздатель: ${allUsers[channel.createdBy]?.nickname || 'Неизвестен'}`);
+            const channel = allChannels.find(c => c.id === currentChat.id);
+            alert(`Канал: ${channel.name}\nОписание: ${channel.description || 'Нет'}\nСоздатель: ${allUsers.find(u => u.id === channel.created_by)?.nickname || 'Неизвестен'}`);
         }
     };
 
@@ -617,38 +633,42 @@
         if (!isLoginMode && !nickname) { authError.innerText = 'Придумайте никнейм'; return; }
         try {
             if (isLoginMode) {
-                await auth.signInWithEmailAndPassword(email, password);
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) throw error;
             } else {
-                const userCred = await auth.createUserWithEmailAndPassword(email, password);
-                const uid = userCred.user.uid;
-                const nickSnapshot = await db.ref('nicknames').orderByValue().equalTo(nickname).once('value');
-                if (nickSnapshot.exists()) {
-                    await userCred.user.delete();
-                    authError.innerText = 'Никнейм уже занят';
-                    return;
-                }
-                await db.ref(`users/${uid}`).set({ nickname, email, createdAt: Date.now() });
-                await db.ref(`nicknames/${nickname}`).set(uid);
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: { data: { nickname } }
+                });
+                if (error) throw error;
+                alert("Регистрация успешна! Теперь войдите.");
+                // Переключаем на режим входа
+                isLoginMode = true;
+                nicknameInput.style.display = 'none';
+                submitBtn.innerText = 'Войти';
+                toggleMode.innerText = 'Создать аккаунт';
+                emailInput.value = '';
+                passwordInput.value = '';
             }
         } catch (err) {
             authError.innerText = err.message;
         }
     };
 
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            currentUser = user;
-            const snap = await db.ref(`users/${user.uid}`).once('value');
-            let userData = snap.val();
-            if (!userData) {
-                const fallbackNick = 'User' + user.uid.slice(0,6);
-                await db.ref(`users/${user.uid}`).set({ nickname: fallbackNick, email: user.email });
-                await db.ref(`nicknames/${fallbackNick}`).set(user.uid);
-                userData = { nickname: fallbackNick };
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+            currentUser = session.user;
+            // Получаем данные пользователя из таблицы users
+            const { data: userData } = await supabase.from('users').select('nickname').eq('id', currentUser.id).single();
+            if (userData) {
+                currentUser.nickname = userData.nickname;
+                userNickDisplay.innerText = userData.nickname;
+                userAvatar.innerText = userData.nickname.charAt(0).toUpperCase();
+            } else {
+                userNickDisplay.innerText = 'User';
+                userAvatar.innerText = 'U';
             }
-            currentUser.displayName = userData.nickname;
-            userNickDisplay.innerText = currentUser.displayName;
-            userAvatar.innerText = currentUser.displayName.charAt(0).toUpperCase();
             authScreen.style.display = 'none';
             chatScreen.style.display = 'block';
             await loadAllUsers();
@@ -658,15 +678,15 @@
         } else {
             authScreen.style.display = 'flex';
             chatScreen.style.display = 'none';
-            if (currentMessagesListener) {
-                currentMessagesListener.off();
-                currentMessagesListener = null;
+            if (currentChannel) {
+                currentChannel.unsubscribe();
+                currentChannel = null;
             }
             currentChat = null;
         }
     });
 
-    logoutBtn.onclick = () => auth.signOut();
+    logoutBtn.onclick = () => supabase.auth.signOut();
     tabChats.onclick = () => { activeTab = 'chats'; tabChats.classList.add('active'); tabChannels.classList.remove('active'); renderChatsList(); };
     tabChannels.onclick = () => { activeTab = 'channels'; tabChannels.classList.add('active'); tabChats.classList.remove('active'); renderChatsList(); };
     backBtn.onclick = () => document.getElementById('sidebar').classList.toggle('open');
@@ -680,30 +700,31 @@
     };
     if (localStorage.getItem('lederg_theme') === 'light') document.body.classList.add('light');
     changeNickBtn.onclick = async () => {
-        const newNick = prompt("Новый никнейм:", currentUser.displayName);
-        if (!newNick || newNick.trim() === currentUser.displayName) return;
+        const newNick = prompt("Новый никнейм:", currentUser.nickname);
+        if (!newNick || newNick.trim() === currentUser.nickname) return;
         const trimmed = newNick.trim();
-        const nickSnapshot = await db.ref('nicknames').orderByValue().equalTo(trimmed).once('value');
-        if (nickSnapshot.exists() && nickSnapshot.val() !== currentUser.uid) {
+        // Проверка уникальности
+        const { data: existing } = await supabase.from('users').select('id').eq('nickname', trimmed).maybeSingle();
+        if (existing && existing.id !== currentUser.id) {
             alert("Никнейм уже занят");
             return;
         }
-        const oldNick = currentUser.displayName;
-        await db.ref(`users/${currentUser.uid}/nickname`).set(trimmed);
-        await db.ref(`nicknames/${trimmed}`).set(currentUser.uid);
-        if (oldNick) await db.ref(`nicknames/${oldNick}`).remove();
-        currentUser.displayName = trimmed;
-        userNickDisplay.innerText = trimmed;
-        userAvatar.innerText = trimmed.charAt(0).toUpperCase();
-        alert("Никнейм изменён");
+        const { error } = await supabase.from('users').update({ nickname: trimmed }).eq('id', currentUser.id);
+        if (!error) {
+            currentUser.nickname = trimmed;
+            userNickDisplay.innerText = trimmed;
+            userAvatar.innerText = trimmed.charAt(0).toUpperCase();
+            alert("Никнейм изменён");
+        } else {
+            alert("Ошибка: " + error.message);
+        }
     };
     changePasswordBtn.onclick = async () => {
         const newPass = prompt("Новый пароль (минимум 6 символов):");
         if (newPass && newPass.length >= 6) {
-            try {
-                await currentUser.updatePassword(newPass);
-                alert("Пароль успешно изменён");
-            } catch(e) { alert("Ошибка: " + e.message); }
+            const { error } = await supabase.auth.updateUser({ password: newPass });
+            if (error) alert("Ошибка: " + error.message);
+            else alert("Пароль успешно изменён");
         } else alert("Пароль должен быть не менее 6 символов");
     };
 </script>
