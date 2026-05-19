@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LEDERG — мессенджер нового поколения</title>
+    <title>LEDERG — мессенджер с настройками</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -11,12 +11,7 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         :root {
             --bg-dark: #0a0f1a;
             --bg-sidebar: rgba(18, 25, 35, 0.95);
@@ -26,13 +21,26 @@
             --text-primary: #ffffff;
             --text-secondary: #a0b3c9;
             --border: rgba(43, 156, 94, 0.3);
+            --message-self: #2b9c5e;
+            --message-other: #1a2633;
+        }
+        body.light {
+            --bg-dark: #eef2f5;
+            --bg-sidebar: rgba(255, 255, 255, 0.95);
+            --bg-card: rgba(245, 248, 250, 0.9);
+            --text-primary: #111;
+            --text-secondary: #4a627a;
+            --border: rgba(0, 0, 0, 0.1);
+            --message-self: #d3f0df;
+            --message-other: #e9eef3;
         }
         body {
             font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
-            background: radial-gradient(circle at 20% 30%, #0a0f1a, #03060b);
+            background: var(--bg-dark);
             height: 100vh;
             overflow: hidden;
             color: var(--text-primary);
+            transition: background 0.2s;
         }
         /* Уникальный LEDERG фон */
         body::before {
@@ -48,6 +56,7 @@
             pointer-events: none;
             z-index: 0;
         }
+        body.light::before { opacity: 0.1; }
         /* Авторизация */
         .auth-screen {
             display: flex;
@@ -58,8 +67,11 @@
             position: relative;
             z-index: 2;
         }
+        body.light .auth-screen {
+            background: radial-gradient(circle at 30% 10%, #eef2f5, #d0d8e2);
+        }
         .auth-card {
-            background: rgba(20, 30, 45, 0.85);
+            background: var(--bg-card);
             backdrop-filter: blur(20px);
             border: 1px solid var(--border);
             border-radius: 48px;
@@ -85,9 +97,14 @@
             background: rgba(0,0,0,0.4);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 40px;
-            color: white;
+            color: var(--text-primary);
             font-size: 1rem;
             outline: none;
+        }
+        body.light .auth-card input {
+            background: rgba(0,0,0,0.05);
+            border-color: rgba(0,0,0,0.1);
+            color: #111;
         }
         .auth-card button {
             width: 100%;
@@ -98,7 +115,6 @@
             color: white;
             font-weight: bold;
             cursor: pointer;
-            transition: 0.2s;
         }
         .toggle-mode {
             text-align: center;
@@ -182,7 +198,7 @@
             border: none;
             border-radius: 30px;
             padding: 8px;
-            color: white;
+            color: var(--text-primary);
             cursor: pointer;
         }
         .tab-btn.active {
@@ -198,7 +214,7 @@
             background: rgba(0,0,0,0.4);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 40px;
-            color: white;
+            color: var(--text-primary);
             outline: none;
         }
         .search-results {
@@ -206,7 +222,7 @@
             top: 60px;
             left: 12px;
             right: 12px;
-            background: #1a2633;
+            background: var(--bg-card);
             border-radius: 20px;
             max-height: 250px;
             overflow-y: auto;
@@ -217,7 +233,7 @@
         .search-result {
             padding: 12px;
             cursor: pointer;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -267,13 +283,13 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--border);
         }
         .back-btn {
             display: none;
             background: none;
             border: none;
-            color: white;
+            color: var(--text-primary);
             font-size: 1.4rem;
             cursor: pointer;
         }
@@ -288,6 +304,7 @@
             color: var(--text-secondary);
             cursor: pointer;
             font-size: 1.2rem;
+            margin-left: 12px;
         }
         .messages-area {
             flex: 1;
@@ -305,14 +322,14 @@
             align-self: flex-end;
         }
         .message-bubble {
-            background: #1a2633;
+            background: var(--message-other);
             padding: 8px 14px;
             border-radius: 20px;
             border-bottom-left-radius: 4px;
             word-wrap: break-word;
         }
         .message-self .message-bubble {
-            background: var(--accent);
+            background: var(--message-self);
             border-bottom-right-radius: 4px;
         }
         .message-meta {
@@ -323,7 +340,7 @@
         .input-area {
             padding: 12px;
             background: rgba(0,0,0,0.2);
-            border-top: 1px solid rgba(255,255,255,0.05);
+            border-top: 1px solid var(--border);
         }
         .input-row {
             display: flex;
@@ -336,13 +353,13 @@
             background: rgba(0,0,0,0.4);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 40px;
-            color: white;
+            color: var(--text-primary);
             outline: none;
         }
         .tool-btn {
             background: none;
             border: none;
-            color: white;
+            color: var(--text-primary);
             font-size: 1.3rem;
             cursor: pointer;
             padding: 8px;
@@ -383,11 +400,24 @@
             opacity: 1;
         }
         .modal-content {
-            background: #1a2633;
+            background: var(--bg-card);
             border-radius: 28px;
             padding: 24px;
             width: 90%;
             max-width: 400px;
+        }
+        .modal-content button {
+            width: 100%;
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 40px;
+            border: none;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+        }
+        .modal-content button.secondary {
+            background: #2b3643;
         }
         @media (max-width: 680px) {
             .sidebar {
@@ -416,11 +446,11 @@
 </head>
 <body>
 <div class="app">
-    <!-- Экран авторизации -->
+    <!-- Авторизация -->
     <div id="authScreen" class="auth-screen">
         <div class="auth-card">
             <h2>⚡ LEDERG</h2>
-            <input type="email" id="emailInput" placeholder="Email" autocomplete="off">
+            <input type="email" id="emailInput" placeholder="Email">
             <input type="password" id="passwordInput" placeholder="Пароль">
             <input type="text" id="nicknameInput" placeholder="Никнейм (при регистрации)" style="display: none;">
             <button id="submitAuthBtn">Войти</button>
@@ -429,7 +459,7 @@
         </div>
     </div>
 
-    <!-- Основной экран чата -->
+    <!-- Основной экран -->
     <div id="chatScreen" class="chat-screen">
         <div class="main-layout">
             <div id="sidebar" class="sidebar">
@@ -460,6 +490,8 @@
                     <div class="chat-title" id="currentChatTitle">LEDERG</div>
                     <div class="chat-actions">
                         <button id="channelInfoBtn" style="display: none;"><i class="fas fa-info-circle"></i></button>
+                        <button id="exportChatBtn" title="Экспорт чата"><i class="fas fa-download"></i></button>
+                        <button id="clearChatBtn" title="Очистить историю"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 </div>
                 <div id="messagesArea" class="messages-area"></div>
@@ -475,6 +507,18 @@
     </div>
 </div>
 
+<!-- Модалка настроек -->
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <h3>Настройки</h3>
+        <button id="themeToggleBtn">🌓 Сменить тему (темная/светлая)</button>
+        <button id="changeNickBtn">✏️ Сменить никнейм</button>
+        <button id="changePasswordBtn">🔑 Сменить пароль</button>
+        <button id="notificationsToggleBtn">🔔 Уведомления: Вкл</button>
+        <button id="closeSettingsBtn" class="secondary">Закрыть</button>
+    </div>
+</div>
+
 <!-- Модалка создания канала -->
 <div id="channelModal" class="modal">
     <div class="modal-content">
@@ -482,12 +526,12 @@
         <input type="text" id="channelName" placeholder="Название канала">
         <textarea id="channelDesc" placeholder="Описание" rows="2"></textarea>
         <button id="confirmCreateChannel">Создать</button>
-        <button id="closeModal" style="margin-top: 8px; background: #2b3643;">Отмена</button>
+        <button id="closeModal" class="secondary">Отмена</button>
     </div>
 </div>
 
 <script>
-    // ====================== ВАШ КОНФИГ FIREBASE (уже вставлен) ======================
+    // ====================== ВАШ КОНФИГ FIREBASE ======================
     const firebaseConfig = {
         apiKey: "AIzaSyBMovcf0WC7bHYzeIKo7N5FYgvJOlSmiec",
         authDomain: "lederg-messages.firebaseapp.com",
@@ -498,7 +542,7 @@
         appId: "1:753662822873:web:0635ccd83a5f061546f1c8",
         measurementId: "G-SG186R72QV"
     };
-    // ======================================================================
+    // ==================================================================
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
@@ -511,6 +555,8 @@
     let allChannels = {};
     let userChats = [];
     let activeTab = 'chats';
+    let notificationsEnabled = true;
+    let exportInProgress = false;
 
     // DOM
     const authScreen = document.getElementById('authScreen');
@@ -543,25 +589,24 @@
     const confirmCreateChannel = document.getElementById('confirmCreateChannel');
     const closeModal = document.getElementById('closeModal');
     const channelInfoBtn = document.getElementById('channelInfoBtn');
+    const exportChatBtn = document.getElementById('exportChatBtn');
+    const clearChatBtn = document.getElementById('clearChatBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const changeNickBtn = document.getElementById('changeNickBtn');
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    const notificationsToggleBtn = document.getElementById('notificationsToggleBtn');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 
     // Helper
     function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
     function formatTime(ts) { return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
-    // Загрузка всех пользователей
-    async function loadAllUsers() {
-        const snap = await db.ref('users').once('value');
-        allUsers = snap.val() || {};
-    }
-    // Загрузка всех каналов
-    async function loadAllChannels() {
-        const snap = await db.ref('channels').once('value');
-        allChannels = snap.val() || {};
-    }
+    // Загрузка данных
+    async function loadAllUsers() { const snap = await db.ref('users').once('value'); allUsers = snap.val() || {}; }
+    async function loadAllChannels() { const snap = await db.ref('channels').once('value'); allChannels = snap.val() || {}; }
 
-    // Загрузка чатов пользователя
     async function loadUserChats() {
-        // Личные диалоги
         const convSnap = await db.ref('conversations').once('value');
         const convs = convSnap.val() || {};
         const myId = currentUser.uid;
@@ -583,7 +628,6 @@
                 }
             }
         }
-        // Каналы, на которые подписан
         const memberSnap = await db.ref('channel_members').once('value');
         const members = memberSnap.val() || {};
         let channelChats = [];
@@ -616,7 +660,7 @@
         let filtered = userChats.filter(c => activeTab === 'channels' ? c.type === 'channel' : c.type === 'private');
         chatsListDiv.innerHTML = '';
         if(filtered.length === 0) {
-            chatsListDiv.innerHTML = '<div style="padding:20px;text-align:center;color:#8e9eae;">Нет чатов</div>';
+            chatsListDiv.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">Нет чатов</div>';
             return;
         }
         for(let chat of filtered) {
@@ -637,11 +681,16 @@
     }
 
     async function openChat(chat) {
-        if(currentMessagesListener) currentMessagesListener.off();
+        // ОТКЛЮЧАЕМ СТАРЫЙ ЛИСТЕНЕР — ВАЖНО ДЛЯ ИСПРАВЛЕНИЯ БАГА
+        if(currentMessagesListener) {
+            currentMessagesListener.off();
+            currentMessagesListener = null;
+        }
         currentChat = chat;
         currentChatTitle.innerText = chat.name;
         inputArea.style.display = 'flex';
         messagesArea.innerHTML = '<div style="text-align:center;"><i class="fas fa-spinner fa-pulse"></i> Загрузка...</div>';
+        
         let path = (chat.type === 'private') ? `messages/${chat.id}` : `channel_messages/${chat.id}`;
         const msgRef = db.ref(path);
         currentMessagesListener = msgRef.on('value', (snapshot) => {
@@ -649,6 +698,7 @@
             const msgs = Object.entries(data).map(([id, m]) => ({ id, ...m })).sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
             renderMessages(msgs);
         });
+        
         if(window.innerWidth <= 680) document.getElementById('sidebar').classList.remove('open');
         renderChatsList();
         if(chat.type === 'channel') channelInfoBtn.style.display = 'inline-block';
@@ -659,7 +709,7 @@
         if(!messagesArea) return;
         messagesArea.innerHTML = '';
         if(msgs.length === 0) {
-            messagesArea.innerHTML = '<div style="text-align:center;color:#8e9eae;">Сообщений пока нет</div>';
+            messagesArea.innerHTML = '<div style="text-align:center;color:var(--text-secondary);">Сообщений пока нет</div>';
             return;
         }
         for(let msg of msgs) {
@@ -697,7 +747,7 @@
         await loadUserChats();
     }
 
-    // Поиск людей и каналов (работает 100%)
+    // Поиск людей и каналов
     function setupSearch() {
         let debounce;
         globalSearch.addEventListener('input', async (e) => {
@@ -705,9 +755,7 @@
             const query = e.target.value.trim().toLowerCase();
             if(query.length < 2) { searchResultsPanel.style.display = 'none'; return; }
             debounce = setTimeout(async () => {
-                // Поиск пользователей, исключая себя
                 const usersList = Object.entries(allUsers).filter(([uid, u]) => uid !== currentUser.uid && u.nickname.toLowerCase().includes(query));
-                // Поиск каналов, на которые не подписан
                 const memberSnap = await db.ref('channel_members').once('value');
                 const members = memberSnap.val() || {};
                 const subscribedIds = Object.keys(members).filter(cid => members[cid] && members[cid][currentUser.uid]);
@@ -725,7 +773,7 @@
                     const resDiv = document.createElement('div');
                     resDiv.className = 'search-result';
                     resDiv.innerHTML = `<i class="fas fa-bullhorn"></i> ${escapeHtml(channel.name)} (канал)`;
-                    resDiv.onclick = () => joinChannel(cid, channel.name);
+                    resDiv.onclick = () => joinChannel(cid);
                     searchResultsPanel.appendChild(resDiv);
                 }
                 searchResultsPanel.style.display = 'block';
@@ -770,7 +818,6 @@
     confirmCreateChannel.onclick = async () => {
         const name = channelNameInput.value.trim();
         if(!name) { alert("Введите название канала"); return; }
-        // Проверка уникальности имени
         const exists = Object.values(allChannels).some(ch => ch.name.toLowerCase() === name.toLowerCase());
         if(exists) { alert("Канал с таким именем уже существует"); return; }
         const newChanRef = db.ref('channels').push();
@@ -795,7 +842,106 @@
     sendBtn.onclick = () => sendMessage(messageInput.value);
     messageInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(messageInput.value); });
 
-    // Аутентификация (исправлена)
+    // Экспорт чата
+    exportChatBtn.onclick = async () => {
+        if(!currentChat || exportInProgress) return;
+        exportInProgress = true;
+        const path = currentChat.type === 'private' ? `messages/${currentChat.id}` : `channel_messages/${currentChat.id}`;
+        const snap = await db.ref(path).once('value');
+        const data = snap.val();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat_${currentChat.id}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        exportInProgress = false;
+    };
+
+    // Очистка истории чата
+    clearChatBtn.onclick = async () => {
+        if(!currentChat) return;
+        if(confirm("Очистить всю историю этого чата? Отменить нельзя.")) {
+            const path = currentChat.type === 'private' ? `messages/${currentChat.id}` : `channel_messages/${currentChat.id}`;
+            await db.ref(path).remove();
+            if(currentChat.type === 'private') {
+                await db.ref(`conversations/${currentChat.id}`).update({ lastMessage: '', lastUpdated: Date.now() });
+            }
+            await loadUserChats();
+            // обновить сообщения
+            if(currentMessagesListener) {
+                currentMessagesListener.off();
+                currentMessagesListener = null;
+            }
+            messagesArea.innerHTML = '<div style="text-align:center;color:var(--text-secondary);">История очищена</div>';
+        }
+    };
+
+    // НАСТРОЙКИ
+    settingsBtn.onclick = () => settingsModal.classList.add('active');
+    closeSettingsBtn.onclick = () => settingsModal.classList.remove('active');
+
+    // Тема
+    themeToggleBtn.onclick = () => {
+        document.body.classList.toggle('light');
+        localStorage.setItem('lederg_theme', document.body.classList.contains('light') ? 'light' : 'dark');
+    };
+    if(localStorage.getItem('lederg_theme') === 'light') document.body.classList.add('light');
+
+    // Смена ника
+    changeNickBtn.onclick = async () => {
+        const newNick = prompt("Введите новый никнейм:", currentUser.displayName);
+        if(!newNick || newNick.trim() === currentUser.displayName) return;
+        const trimmed = newNick.trim();
+        // Проверка уникальности
+        const nickSnapshot = await db.ref('nicknames').orderByValue().equalTo(trimmed).once('value');
+        if(nickSnapshot.exists() && nickSnapshot.val() !== currentUser.uid) {
+            alert("Никнейм уже занят");
+            return;
+        }
+        const oldNick = currentUser.displayName;
+        await db.ref(`users/${currentUser.uid}/nickname`).set(trimmed);
+        await db.ref(`nicknames/${trimmed}`).set(currentUser.uid);
+        if(oldNick) await db.ref(`nicknames/${oldNick}`).remove();
+        currentUser.displayName = trimmed;
+        userNickDisplay.innerText = trimmed;
+        userAvatar.innerText = trimmed.charAt(0).toUpperCase();
+        alert("Никнейм изменён");
+    };
+
+    // Смена пароля
+    changePasswordBtn.onclick = async () => {
+        const newPass = prompt("Новый пароль (минимум 6 символов):");
+        if(!newPass) return;
+        if(newPass.length < 6) { alert("Пароль должен быть не менее 6 символов"); return; }
+        try {
+            await currentUser.updatePassword(newPass);
+            alert("Пароль успешно изменён");
+        } catch(e) { alert("Ошибка: " + e.message); }
+    };
+
+    // Уведомления
+    notificationsToggleBtn.onclick = () => {
+        notificationsEnabled = !notificationsEnabled;
+        notificationsToggleBtn.innerText = `🔔 Уведомления: ${notificationsEnabled ? 'Вкл' : 'Выкл'}`;
+        localStorage.setItem('lederg_notifications', notificationsEnabled);
+    };
+    if(localStorage.getItem('lederg_notifications') === 'false') {
+        notificationsEnabled = false;
+        notificationsToggleBtn.innerText = "🔔 Уведомления: Выкл";
+    }
+    if(Notification.permission !== 'granted') Notification.requestPermission();
+
+    // Показ информации о канале
+    channelInfoBtn.onclick = () => {
+        if(currentChat && currentChat.type === 'channel') {
+            const channel = allChannels[currentChat.id];
+            alert(`Канал: ${channel.name}\nОписание: ${channel.description || 'Нет'}\nСоздатель: ${allUsers[channel.createdBy]?.nickname || 'Неизвестен'}`);
+        }
+    };
+
+    // Аутентификация
     let isLoginMode = true;
     toggleMode.onclick = () => {
         isLoginMode = !isLoginMode;
@@ -819,7 +965,6 @@
             } else {
                 const userCred = await auth.createUserWithEmailAndPassword(email, password);
                 const uid = userCred.user.uid;
-                // Проверка уникальности ника
                 const nickSnapshot = await db.ref('nicknames').orderByValue().equalTo(nickname).once('value');
                 if(nickSnapshot.exists()) {
                     await userCred.user.delete();
@@ -840,7 +985,6 @@
             const snap = await db.ref(`users/${user.uid}`).once('value');
             let userData = snap.val();
             if(!userData) {
-                // fallback (на случай, если нет записи)
                 let fallbackNick = 'User' + user.uid.slice(0,6);
                 await db.ref(`users/${user.uid}`).set({ nickname: fallbackNick, email: user.email });
                 await db.ref(`nicknames/${fallbackNick}`).set(user.uid);
@@ -858,7 +1002,10 @@
         } else {
             authScreen.style.display = 'flex';
             chatScreen.style.display = 'none';
-            if(currentMessagesListener) currentMessagesListener.off();
+            if(currentMessagesListener) {
+                currentMessagesListener.off();
+                currentMessagesListener = null;
+            }
             currentChat = null;
         }
     });
@@ -869,13 +1016,6 @@
     backBtn.onclick = () => document.getElementById('sidebar').classList.toggle('open');
     createChannelFab.onclick = () => channelModal.classList.add('active');
     closeModal.onclick = () => channelModal.classList.remove('active');
-    settingsBtn.onclick = () => alert('Настройки появятся в следующем обновлении');
-    channelInfoBtn.onclick = () => {
-        if(currentChat && currentChat.type === 'channel') {
-            const channel = allChannels[currentChat.id];
-            alert(`Канал: ${channel.name}\nОписание: ${channel.description || 'Нет'}\nСоздатель: ${allUsers[channel.createdBy]?.nickname || 'Неизвестен'}`);
-        }
-    };
 </script>
 </body>
 </html>
